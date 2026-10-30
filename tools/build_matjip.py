@@ -110,12 +110,27 @@ def main():
     except Exception as ex:
         print("게시판을 불러오지 못해 기존 페이지를 그대로 둡니다:", ex)
         sys.exit(1)
-    posts = []
-    for k, v in (raw or {}).items():
-        if isinstance(v, dict) and v.get("t") and v.get("s") and v.get("r") in REGIONS:
-            v = dict(v); v["id"] = k; v["ts"] = int(v.get("ts") or 0); posts.append(v)
+    # 지역값이 짧은 이름(경북)이든 정식 이름(경상북도)이든 받아들입니다
+    alias = {}
+    for short, (_slug, full) in REGIONS.items():
+        alias[short] = short; alias[full] = short
+    if isinstance(raw, list):  # 혹시 목록 형태로 오면 번호를 글 ID로 씁니다
+        raw = {str(i): v for i, v in enumerate(raw) if v}
+    raw = raw if isinstance(raw, dict) else {}
+    seen, skipped, posts = {}, 0, []
+    for k, v in raw.items():
+        if not isinstance(v, dict):
+            skipped += 1; continue
+        r = alias.get(str(v.get("r") or "").strip())
+        seen[str(v.get("r"))] = seen.get(str(v.get("r")), 0) + 1
+        if v.get("t") and v.get("s") and r:
+            v = dict(v); v["r"] = r; v["id"] = k; v["ts"] = int(v.get("ts") or 0); posts.append(v)
+        else:
+            skipped += 1
+    print(f"[진단] 게시판에서 읽은 항목 {len(raw)}개 · 쓸 수 있는 글 {len(posts)}개 · 건너뜀 {skipped}개")
+    print(f"[진단] 지역값 목록: {seen}")
     if not posts:
-        print("보여줄 글이 없어 기존 페이지를 그대로 둡니다.")
+        print("보여줄 글이 없어 기존 페이지를 그대로 둡니다. (위 진단 줄을 알려 주세요)")
         return
     posts.sort(key=lambda p: p["ts"], reverse=True)
 

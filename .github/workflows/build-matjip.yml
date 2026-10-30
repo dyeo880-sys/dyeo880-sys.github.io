@@ -22,5 +22,6 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add -A matjip sitemap.xml
+          [ -d matjip ] && git add -A matjip
+          git add -A sitemap.xml
           git diff --cached --quiet || (git commit -m "맛집 검색용 페이지 갱신" && git push)
