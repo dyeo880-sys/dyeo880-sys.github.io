@@ -14,7 +14,133 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python3 tools/generate.py
+      - name: Generate pages
+        run: |
+          python3 - <<'PYEOF'
+          #!/usr/bin/env python3
+          """Firebase의 /board(맛집), /promo(동네 홍보) 글을 글마다 정적 HTML로 만들고 sitemap.xml을 갱신합니다.
+          사용: python3 tools/generate.py            (Firebase에서 읽음)
+                python3 tools/generate.py --test DIR (DIR/board.json, promo.json, promo_ban.json 으로 테스트)
+          """
+          import html, json, os, shutil, sys, urllib.request, datetime
+
+          SITE = "https://dyeo880-sys.github.io"
+          DB = "https://project-4230942543796585572-default-rtdb.firebaseio.com"
+          ROOT = os.getcwd()
+          MAX_POSTS = 5000
+          SECTIONS = {
+              "board": {"name": "지역별 맛집 게시판", "icon": "🍚"},
+              "promo": {"name": "지역별 동네 홍보", "icon": "📣"},
+          }
+
+          def get(path, test_dir):
+              if test_dir:
+                  p = os.path.join(test_dir, path + ".json")
+                  return json.load(open(p, encoding="utf-8")) if os.path.exists(p) else {}
+              req = urllib.request.Request(f"{DB}/{path}.json", headers={"User-Agent": "radiola-seo-gen"})
+              with urllib.request.urlopen(req, timeout=60) as r:
+                  return json.load(r) or {}
+
+          e = lambda s: html.escape(str(s or ""), quote=True)
+
+          def clip(s, n):
+              s = " ".join(str(s or "").split())
+              return s if len(s) <= n else s[: n - 1] + "…"
+
+          def iso(ts):
+              try:
+                  return datetime.datetime.fromtimestamp(int(ts) / 1000, datetime.timezone.utc).strftime("%Y-%m-%d")
+              except Exception:
+                  return datetime.date.today().isoformat()
+
+          CSS = """body{margin:0;background:#1d120b;color:#f0e2c4;font-family:system-ui,'Noto Sans KR',sans-serif;line-height:1.7}
+          main{max-width:760px;margin:0 auto;padding:24px 16px}a{color:#ffcf7a}h1{font-size:1.5rem;color:#ffcf7a;margin:.2em 0}
+          .meta{opacity:.75;font-size:.9rem}.body{white-space:pre-wrap;background:#2a1a10;border-radius:10px;padding:14px;margin:16px 0}
+          .cta{display:inline-block;background:#ffcf7a;color:#2a1a10;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:700}
+          ul{padding-left:1.1em}li{margin:.3em 0}nav a{margin-right:12px}"""
+
+          def page(title, desc, canon, body, ld=None):
+              ldtag = f'<script type="application/ld+json">{json.dumps(ld, ensure_ascii=False)}</script>' if ld else ""
+              return f"""<!DOCTYPE html>
+          <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>{e(title)}</title><meta name="description" content="{e(desc)}">
+          <link rel="canonical" href="{canon}"><meta name="robots" content="index, follow">
+          <meta property="og:type" content="article"><meta property="og:title" content="{e(title)}">
+          <meta property="og:description" content="{e(desc)}"><meta property="og:url" content="{canon}">
+          <meta property="og:site_name" content="Radiola 웹 라디오"><meta property="og:image" content="{SITE}/og-image.png">
+          <meta property="og:locale" content="ko_KR"><link rel="icon" href="/favicon.ico">
+          <style>{CSS}</style>{ldtag}</head><body><main>
+          <nav><a href="/">Radiola 홈</a><a href="/board/">맛집 게시판</a><a href="/promo/">동네 홍보</a></nav>
+          {body}
+          <p><a class="cta" href="/">🎵 Radiola 웹 라디오 열기 (글쓰기·댓글)</a></p>
+          </main></body></html>"""
+
+          def loc(p):
+              return " ".join(x for x in [p.get("r"), p.get("g"), p.get("dn")] if x)
+
+          def build_post(kind, p):
+              place = loc(p)
+              if kind == "board":
+                  title = f"{p['t']} - {p.get('s','')} ({place} {p.get('f','')})".replace("  ", " ")
+                  desc = clip(f"{place} 맛집 {p.get('s','')} · 추천 {p.get('f','')}. {p.get('b','')}", 150)
+                  extra = [("상호", p.get("s")), ("추천 음식", p.get("f")), ("분류", p.get("c")), ("주소", p.get("a"))]
+                  ld = {"@context": "https://schema.org", "@type": "Restaurant", "name": p.get("s", ""),
+                        "servesCuisine": p.get("c", ""), "description": clip(p.get("b"), 300),
+                        "address": {"@type": "PostalAddress", "addressCountry": "KR", "addressRegion": p.get("r", ""),
+                                    "addressLocality": p.get("g", ""), "streetAddress": p.get("a", "")}}
+              else:
+                  title = f"{p['t']} - {place} 동네 홍보"
+                  desc = clip(f"{place} 동네 소식. {p.get('b','')}", 150)
+                  extra = [("분류", p.get("c")), ("주소", p.get("a"))]
+                  ld = {"@context": "https://schema.org", "@type": "Article", "headline": clip(p["t"], 110),
+                        "datePublished": iso(p.get("ts")), "inLanguage": "ko",
+                        "author": {"@type": "Person", "name": p.get("n", "손님")}, "description": clip(p.get("b"), 300)}
+              rows = "".join(f"<li>{k}: {e(v)}</li>" for k, v in extra if v)
+              if p.get("m"):
+                  rows += f'<li>지도: <a href="{e(p["m"])}" rel="nofollow noopener" target="_blank">지도 보기</a></li>'
+              body = (f'<p class="meta">{SECTIONS[kind]["icon"]} {SECTIONS[kind]["name"]} · {e(place)} · {iso(p.get("ts"))} · 작성자 {e(p.get("n","손님"))}</p>'
+                      f'<h1>{e(p["t"])}</h1><ul>{rows}</ul><div class="body">{e(p.get("b"))}</div>')
+              return page(title, desc, f"{SITE}/{kind}/{p['id']}.html", body, ld)
+
+          def main():
+              test = sys.argv[sys.argv.index("--test") + 1] if "--test" in sys.argv else None
+              bans = get("promo_ban", test)
+              urls = [(SITE + "/", datetime.date.today().isoformat()), (SITE + "/board/", None), (SITE + "/promo/", None)]
+              for kind in SECTIONS:
+                  data = get(kind, test)
+                  posts = []
+                  for pid, v in data.items():
+                      if not isinstance(v, dict) or not v.get("t") or not v.get("r"): continue
+                      if kind == "board" and not v.get("s"): continue
+                      if kind == "promo" and v.get("u") in bans: continue
+                      posts.append(dict(v, id=pid))
+                  posts.sort(key=lambda x: int(x.get("ts") or 0), reverse=True)
+                  posts = posts[:MAX_POSTS]
+                  out = os.path.join(ROOT, kind)
+                  if os.path.isdir(out): shutil.rmtree(out)
+                  os.makedirs(out)
+                  by_region = {}
+                  for p in posts:
+                      open(os.path.join(out, p["id"] + ".html"), "w", encoding="utf-8").write(build_post(kind, p))
+                      urls.append((f"{SITE}/{kind}/{p['id']}.html", iso(p.get("ts"))))
+                      by_region.setdefault(p["r"], []).append(p)
+                  body = f'<h1>{SECTIONS[kind]["icon"]} {SECTIONS[kind]["name"]}</h1><p class="meta">전국 {len(posts)}개 글</p>'
+                  for r, ps in by_region.items():
+                      body += f"<h2>{e(r)}</h2><ul>" + "".join(
+                          f'<li><a href="/{kind}/{e(p["id"])}.html">{e(p["t"])}</a> <span class="meta">{e(loc(p))}</span></li>' for p in ps) + "</ul>"
+                  open(os.path.join(out, "index.html"), "w", encoding="utf-8").write(
+                      page(f'{SECTIONS[kind]["name"]} - Radiola 웹 라디오', f'{SECTIONS[kind]["name"]} 전체 글 목록 (지역별)', f"{SITE}/{kind}/", body))
+                  print(kind, len(posts), "글")
+              xml = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+              for u, d in urls:
+                  xml.append(f"<url><loc>{e(u)}</loc>" + (f"<lastmod>{d}</lastmod>" if d else "") + "</url>")
+              xml.append("</urlset>")
+              open(os.path.join(ROOT, "sitemap.xml"), "w", encoding="utf-8").write("\n".join(xml) + "\n")
+              print("sitemap urls:", len(urls))
+
+          if __name__ == "__main__":
+              main()
+          PYEOF
       - name: Commit
         id: commit
         run: |
