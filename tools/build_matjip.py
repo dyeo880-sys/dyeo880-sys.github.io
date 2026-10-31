@@ -32,12 +32,17 @@ REGION_ALIAS = {
 }
 
 KEYS = {
-    "title": ["title", "name", "store", "shop", "제목", "가게", "상호"],
-    "region": ["region", "area", "city", "지역"],
-    "body": ["content", "body", "desc", "description", "text", "내용", "설명"],
-    "address": ["address", "addr", "주소"],
+    # 실제 게시판(index.html)이 저장하는 짧은 항목 이름을 맨 앞에 둠
+    "title": ["s", "title", "name", "store", "shop", "제목", "가게", "상호"],   # s = 상호
+    "headline": ["t"],                                                         # t = 글 제목
+    "region": ["r", "region", "area", "city", "지역"],                           # r = 시·도
+    "gu": ["g"],                                                               # g = 시·군·구
+    "dong": ["dn"],                                                            # dn = 읍·면·동
+    "body": ["b", "content", "body", "desc", "description", "text", "내용", "설명"],
+    "address": ["a", "address", "addr", "주소"],
     "phone": ["phone", "tel", "전화", "연락처"],
-    "menu": ["menu", "메뉴"],
+    "menu": ["f", "menu", "메뉴"],                                              # f = 추천 음식
+    "cat": ["c"],                                                              # c = 분류
     "hours": ["hours", "영업시간"],
     "date": ["date", "createdAt", "created", "time", "작성일"],
 }
@@ -193,6 +198,10 @@ def main():
             "id": slug(str(it.get("_id", title))),
             "title": title,
             "region": norm_region(pick(it, "region")),
+            "gu": pick(it, "gu"),
+            "dong": pick(it, "dong"),
+            "headline": pick(it, "headline"),
+            "cat": pick(it, "cat"),
             "body": pick(it, "body"),
             "address": pick(it, "address"),
             "phone": pick(it, "phone"),
@@ -227,19 +236,24 @@ def main():
             lines.append(f"<li>영업시간: {e(p['hours'])}</li>")
         if p["menu"]:
             lines.append(f"<li>메뉴: {e(p['menu'])}</li>")
+        if p["cat"]:
+            lines.insert(0, f"<li>분류: {e(p['cat'])}</li>")
         info = f"<ul>{''.join(lines)}</ul>" if lines else ""
+        place = " ".join(x for x in [p["region"], p["gu"], p["dong"]] if x)
         text = "".join(f"<p>{e(s)}</p>" for s in p["body"].split("\n") if s.strip())
         body = (
             f'<p class="meta"><a href="/matjip/">맛집</a> › <a href="{rpath}">{e(p["region"])}</a></p>'
-            f"<h1>{e(p['region'])} {e(p['title'])}</h1>{info}{text}"
+            f"<h1>{e(place)} {e(p['title'])}</h1>"
+            + (f"<p class=\"meta\">{e(p['headline'])}</p>" if p["headline"] else "")
+            + f"{info}{text}"
         )
         ld = {"@context": "https://schema.org", "@type": "Restaurant", "name": p["title"]}
         if p["address"]:
             ld["address"] = p["address"]
         if p["phone"]:
             ld["telephone"] = p["phone"]
-        title = f"{p['region']} {p['title']} - 맛집 | {SITE_NAME}"
-        desc = short(p["body"] or f"{p['region']} {p['title']} 맛집 정보")
+        title = f"{place} {p['title']} - 맛집 | {SITE_NAME}"
+        desc = short(p["body"] or p["headline"] or f"{place} {p['title']} 맛집 정보")
         write(path, page(title, desc, path, body, [ld, breadcrumb([
             ("맛집", "/matjip/"), (p["region"], rpath), (p["title"], path)])]))
         urls.append(path)
