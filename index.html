@@ -7446,7 +7446,7 @@ setTimeout(rssLoad, 2500);   // 접속 직후 바쁘지 않게 조금 뒤에 첫
 setInterval(() => { if (!document.hidden) rssLoad(); }, RSS_EVERY);
 
 // ===== 🧠 채팅 용어 스스로 배우기: 채팅에서 자주 나오는 말을 모아 자동완성으로 추천하고, 모르는 말은 무료 AI(중계 파일 jin_ai.php)에게 한 번만 물어 모두가 함께 씁니다 =====
-const AI_PROXY = RSS_PROXY.replace('jin_rss.php', 'jin_ai.php');
+const AI_PROXY = 'https://round-moon-403jin-ai1.dyeo880.workers.dev/';   // Cloudflare Worker 중계 (뜻풀이)
 const VK = 'radio_vocab', SK = 'radio_slang', AK = 'radio_slang_auto';
 const jl = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || d); } catch(e){ return JSON.parse(d); } };
 let VOC = jl(VK, '{}'), VSH = {}, SLANG = jl(SK, '{}');
