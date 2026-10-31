@@ -1016,6 +1016,7 @@ main .chat.sp.dopen{display:block;position:fixed;top:0;bottom:0;right:80px;width
           <button class="tbtn" data-p="p-music" type="button" aria-expanded="false">🎵 음악 ▾</button>
           <button class="tbtn" data-p="p-vplay" type="button" aria-expanded="false">🎬 영상 ▾</button>
           <button class="tbtn" data-p="p-vfind" type="button" aria-expanded="false">🔎 영상 찾기 ▾</button>
+          <button class="tbtn" data-p="p-tv" type="button" aria-expanded="false">📺 TV ▾</button>
           <button class="tbtn" data-p="p-vshare" type="button" aria-expanded="false">🖥 화면·강의 ▾</button>
         </div>
       </div>
@@ -1069,6 +1070,14 @@ main .chat.sp.dopen{display:block;position:fixed;top:0;bottom:0;right:80px;width
           <div id="ytkmsg" role="status" style="font-size:12px;margin-top:6px;min-height:16px"></div>
         </details>
         <div class="vres" id="vres" hidden></div>
+      </div>
+      <div class="tp" id="p-tv" hidden>
+        <input id="tvrq" placeholder="채널 이름 검색 (예: KBS, NHK, CNN, 아리랑)" aria-label="TV 채널 이름 검색" style="flex:1;min-width:180px">
+        <button class="addhome" style="margin:0" type="button" id="tvrgo">🔍 전체 검색</button>
+        <button class="addhome" style="margin:0" type="button" id="tvrall">📺 나라별 보기</button>
+        <button class="addhome" style="margin:0" type="button" id="tvroff" title="방에서 틀고 있는 영상·TV를 끕니다">■ TV 끄기</button>
+        <div class="vres" id="tvrres" hidden style="max-height:320px"></div>
+        <div class="chatnote" style="flex-basis:100%;margin:0">채널을 누르면 방 사람들 화면에도 같은 방송이 나옵니다. 목록은 열어 둔 채로 다른 채널을 계속 눌러 볼 수 있습니다. 일부 방송은 지역 제한·주소 변경으로 안 나올 수 있으니, 안 나오면 다른 채널을 눌러 보세요.</div>
       </div>
       <div class="tp" id="p-vshare" hidden>
         <div class="sgrp">
@@ -6738,6 +6747,48 @@ $('ytktest').onclick = async () => {
 ytkRefresh();
 
 $('vtv').onclick = () => tvBrowse();
+
+// ---- 📺 음방 전용 TV 메뉴 (방장): 이름으로 전체 검색 · 나라별 보기 · 누르면 방 전체에 TV가 나옴 ----
+(function(){
+  const res = $('tvrres');
+  const pickTv = x => { Promise.resolve(hostLink(x.u, true)).then(() => { try { mwUpdate('📺 ' + String(x.name).slice(0, 40)); } catch(e){} }).catch(() => {}); };
+  let busy = false;
+  async function tvAllSearch(){
+    const q = $('tvrq').value.trim().toLowerCase();
+    res.hidden = false;
+    if (!q){ res.innerHTML = '<div class="vm">찾을 채널 이름을 입력하세요. (예: KBS, NHK, CNN)</div>'; return; }
+    if (busy) return; busy = true;
+    try {
+      const opts = [...$('vtvc').options], names = {};
+      opts.forEach(o => { names[o.value] = o.textContent.replace(/^📡 /, ''); });
+      const codes = opts.map(o => o.value).filter(c => c !== 'extra'), total = codes.length + 1, found = [];
+      let n = 0, done = 0;
+      res.innerHTML = '<div class="vm">찾는 중… (0/' + total + ' 나라 확인)</div>';
+      const worker = async () => {
+        while (n < codes.length){
+          const cc = codes[n++];
+          try { const l = await tvLoad(cc); l.forEach(x => { if (String(x.name).toLowerCase().includes(q)) found.push({x, cc}); }); } catch(e){}
+          done++; if (done % 8 === 0 && res.firstChild && res.firstChild.className === 'vm') res.firstChild.textContent = '찾는 중… (' + done + '/' + total + ' 나라 확인)';
+        }
+      };
+      await Promise.all(Array.from({length: 6}, worker));
+      try { const l = await tvLoad('extra'); l.forEach(x => { if (tvGet(x.u) !== 0 && String(x.name).toLowerCase().includes(q)) found.push({x, cc: 'extra'}); }); } catch(e){}
+      res.innerHTML = '';
+      if (!found.length){ res.innerHTML = '<div class="vm">찾는 채널이 없습니다. 영어 이름이나 짧은 이름으로 다시 검색해 보세요.</div>'; return; }
+      const hd = document.createElement('div'); hd.className = 'vm'; hd.textContent = found.length + '개 찾음' + (found.length > 200 ? ' (앞의 200개만 표시)' : '') + ' · 누르면 바로 재생됩니다.'; res.append(hd);
+      found.slice(0, 200).forEach(({x, cc}) => {
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'vr'; b.textContent = String(x.name).slice(0, 70);
+        const sm = document.createElement('small'); sm.textContent = 'TV · ' + (names[cc] || cc); b.append(sm);
+        b.onclick = () => { res.querySelectorAll('.vr').forEach(y => y.style.background = ''); b.style.background = '#b99a5b33'; pickTv(x); };
+        res.append(b);
+      });
+    } finally { busy = false; }
+  }
+  $('tvrgo').onclick = tvAllSearch;
+  $('tvrq').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); tvAllSearch(); } });
+  $('tvrall').onclick = () => tvBrowse(res, pickTv);
+  $('tvroff').onclick = () => { try { hostVideoOff(); } catch(e){} };
+})();
 
 // ---- 방 없이 혼자 보는 TV ----
 let tvHls = null, tvAutoN = 0;
