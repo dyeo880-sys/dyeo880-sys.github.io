@@ -1,196 +1,299 @@
 #!/usr/bin/env python3
+"""맛집 게시판 글을 검색용 정적 페이지(/matjip/)로 만든다.
+
+데이터 출처 (위에서부터 먼저 되는 것 사용)
+ 1) 환경변수 MATJIP_DATA_URL : JSON을 돌려주는 주소 (예: Firebase Realtime DB .json 주소)
+ 2) data/matjip.json         : 저장소 안의 JSON 파일
+
+글이 하나도 없어도 오류로 멈추지 않고, 실행 기록에 [진단] 줄을 남긴다.
 """
-라디오 맛집 게시판(Firebase /board) 글을 검색엔진이 읽을 수 있는 정적 HTML 페이지로 만듭니다.
+import datetime
+import html
+import json
+import os
+import pathlib
+import re
+import sys
+import urllib.parse
+import urllib.request
 
-  - /matjip/index.html            전국 맛집 모음 (지역 링크 + 최신 글)
-  - /matjip/<지역>/index.html     시·도별 맛집 목록  (예: /matjip/seoul/)
-  - /matjip/p/<글ID>.html         글 하나당 페이지    (가게 이름으로 검색되게)
-  - /sitemap.xml                  위 페이지 전부 + 메인 주소
+SITE = "https://dyeo880-sys.github.io"
+SITE_NAME = "Radiola 웹 라디오"
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+OUT = ROOT / "matjip"
+LOCAL = ROOT / "data" / "matjip.json"
+DATA_URL = os.environ.get("MATJIP_DATA_URL", "").strip()
+TODAY = datetime.date.today().isoformat()
 
-사용법 (저장소 맨 위 폴더에서):  python3 tools/build_matjip.py
-표준 라이브러리만 씁니다. 설치할 것이 없습니다.
-테스트용: python3 tools/build_matjip.py --file board.json   (인터넷 없이 파일로 시험)
-"""
-import html, json, os, re, shutil, sys, urllib.request, urllib.parse
-from datetime import datetime, timezone, timedelta
-
-ROOT = "https://dyeo880-sys.github.io/"
-DB = "https://project-4230942543796585572-default-rtdb.firebaseio.com"
-SITE = "Radiola 웹 라디오"
-KST = timezone(timedelta(hours=9))
-
-REGIONS = {  # 게시판 지역값: (주소용 영문, 정식 이름)
-    "서울": ("seoul", "서울특별시"), "부산": ("busan", "부산광역시"), "대구": ("daegu", "대구광역시"),
-    "인천": ("incheon", "인천광역시"), "광주": ("gwangju", "광주광역시"), "대전": ("daejeon", "대전광역시"),
-    "울산": ("ulsan", "울산광역시"), "세종": ("sejong", "세종특별자치시"), "경기": ("gyeonggi", "경기도"),
-    "강원": ("gangwon", "강원도"), "충북": ("chungbuk", "충청북도"), "충남": ("chungnam", "충청남도"),
-    "전북": ("jeonbuk", "전라북도"), "전남": ("jeonnam", "전라남도"), "경북": ("gyeongbuk", "경상북도"),
-    "경남": ("gyeongnam", "경상남도"), "제주": ("jeju", "제주특별자치도"),
+REGION_ALIAS = {
+    "경상북도": "경북", "경상남도": "경남", "전라북도": "전북", "전라남도": "전남",
+    "충청북도": "충북", "충청남도": "충남", "강원특별자치도": "강원", "강원도": "강원",
+    "제주특별자치도": "제주", "제주도": "제주",
 }
-MAP_HOSTS = ("kakao.com", "naver.com", "naver.me", "google.com", "goo.gl", "kko.to", "kko.kakao.com")
 
-e = lambda x: html.escape(str(x or ""), quote=True)
-def clip(t, n):
-    t = re.sub(r"\s+", " ", str(t or "")).strip()
-    return t if len(t) <= n else t[: n - 1].rstrip() + "…"
+KEYS = {
+    "title": ["title", "name", "store", "shop", "제목", "가게", "상호"],
+    "region": ["region", "area", "city", "지역"],
+    "body": ["content", "body", "desc", "description", "text", "내용", "설명"],
+    "address": ["address", "addr", "주소"],
+    "phone": ["phone", "tel", "전화", "연락처"],
+    "menu": ["menu", "메뉴"],
+    "hours": ["hours", "영업시간"],
+    "date": ["date", "createdAt", "created", "time", "작성일"],
+}
 
-def safe_map(u):
-    try:
-        p = urllib.parse.urlparse(u or "")
-        if p.scheme == "https" and any(p.hostname and (p.hostname == h or p.hostname.endswith("." + h)) for h in MAP_HOSTS):
-            return u
-    except Exception:
-        pass
+
+def log(msg):
+    print(msg, flush=True)
+
+
+def fetch_json():
+    if DATA_URL:
+        try:
+            req = urllib.request.Request(DATA_URL, headers={"User-Agent": "matjip-builder"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return json.loads(r.read().decode("utf-8")), "URL"
+        except Exception as e:  # noqa: BLE001
+            log(f"[진단] 게시판 주소를 불러오지 못했습니다: {e}")
+    if LOCAL.exists():
+        try:
+            return json.loads(LOCAL.read_text(encoding="utf-8")), "파일"
+        except Exception as e:  # noqa: BLE001
+            log(f"[진단] data/matjip.json 읽기 실패: {e}")
+    return None, "없음"
+
+
+def as_items(data):
+    items = []
+    if isinstance(data, dict):
+        # {"posts": {...}} 같은 한 겹 감싸기도 허용
+        if len(data) == 1 and isinstance(next(iter(data.values())), (dict, list)):
+            inner = next(iter(data.values()))
+            if isinstance(inner, list) or (
+                isinstance(inner, dict) and all(isinstance(v, dict) for v in inner.values())
+            ):
+                data = inner
+        if isinstance(data, dict):
+            for k, v in data.items():
+                if isinstance(v, dict):
+                    v = dict(v)
+                    v.setdefault("_id", k)
+                    items.append(v)
+    if isinstance(data, list):
+        for i, v in enumerate(data):
+            if isinstance(v, dict):
+                v = dict(v)
+                v.setdefault("_id", str(i))
+                items.append(v)
+    return items
+
+
+def pick(d, name):
+    for k in KEYS[name]:
+        v = d.get(k)
+        if v not in (None, ""):
+            if isinstance(v, (list, tuple)):
+                v = ", ".join(str(x) for x in v)
+            return str(v).strip()
     return ""
 
+
+def norm_region(r):
+    r = (r or "").strip()
+    return REGION_ALIAS.get(r, r) or "기타"
+
+
+def slug(text):
+    s = re.sub(r"[\\/:*?\"<>|#%\s]+", "-", text).strip("-")
+    return s or "etc"
+
+
+def e(s):
+    return html.escape(s or "", quote=True)
+
+
+def short(text, n=110):
+    t = re.sub(r"\s+", " ", text or "").strip()
+    return t if len(t) <= n else t[: n - 1] + "…"
+
+
 CSS = """
-body{margin:0;background:radial-gradient(ellipse at top,#6b4a2e,#1d120b 70%);color:#f0e2c4;font:16px/1.7 "Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;padding:16px}
-.w{max-width:820px;margin:0 auto;background:#3b2417;border:2px solid #2a190e;border-radius:16px;padding:20px 22px;box-shadow:0 14px 40px #000a}
-a{color:#ffcf7a}h1{font-size:24px;margin:.2em 0 .4em;color:#ffcf7a}h2{font-size:18px;margin:1.4em 0 .4em;color:#ffcf7a}
-.nav{font-size:14px;opacity:.9}.cta{display:inline-block;margin:10px 0;padding:10px 16px;border-radius:8px;background:#b99a5b;color:#2a1a08;font-weight:700;text-decoration:none}
-.card{background:#241610;border:1px solid #b99a5b66;border-radius:10px;padding:12px 14px;margin:10px 0}
-.card h3{margin:0 0 4px;font-size:17px}.meta{font-size:13px;opacity:.8}.body{margin:8px 0 0;white-space:normal}
-ul.l{padding-left:18px;margin:6px 0}.foot{margin-top:22px;font-size:13px;opacity:.75}
+body{font-family:system-ui,-apple-system,'Malgun Gothic',sans-serif;margin:0;color:#222;line-height:1.7;background:#fafafa}
+header,main,footer{max-width:760px;margin:0 auto;padding:16px}
+header a{color:#222;text-decoration:none;font-weight:700}
+h1{font-size:1.5rem;margin:.6em 0}
+ul{padding-left:1.2em} li{margin:.4em 0}
+a{color:#0b57d0}
+.card{background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:14px 16px;margin:12px 0}
+.meta{color:#555;font-size:.95rem}
+footer{color:#777;font-size:.85rem}
 """
 
-def page(title, desc, canon, body, crumbs, lastmod=None):
-    ld = {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
-        {"@type": "ListItem", "position": i + 1, "name": n, "item": u} for i, (n, u) in enumerate(crumbs)]}
-    return f"""<!DOCTYPE html>
+
+def page(title, desc, path, body, jsonld=None):
+    url = f"{SITE}{path}"
+    ld = ""
+    if jsonld:
+        ld = '<script type="application/ld+json">' + json.dumps(jsonld, ensure_ascii=False) + "</script>"
+    return f"""<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{e(title)}</title>
 <meta name="description" content="{e(desc)}">
-<link rel="canonical" href="{e(canon)}">
-<meta name="robots" content="index, follow, max-image-preview:large">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="{SITE}">
+<link rel="canonical" href="{e(url)}">
 <meta property="og:title" content="{e(title)}">
 <meta property="og:description" content="{e(desc)}">
-<meta property="og:url" content="{e(canon)}">
-<meta property="og:locale" content="ko_KR">
-<meta property="og:image" content="{ROOT}og-image.png">
-<link rel="icon" href="/favicon.ico" sizes="48x48">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<script type="application/ld+json">{json.dumps(ld, ensure_ascii=False, separators=(",", ":"))}</script>
+<meta property="og:url" content="{e(url)}">
+<meta property="og:type" content="website">
 <style>{CSS}</style>
+{ld}
 </head>
 <body>
-<main class="w">
-<div class="nav">{' › '.join(f'<a href="{e(u)}">{e(n)}</a>' for n, u in crumbs[:-1])}{' › ' if len(crumbs) > 1 else ''}{e(crumbs[-1][0])}</div>
+<header><a href="/">{e(SITE_NAME)}</a> · <a href="/matjip/">맛집</a></header>
+<main>
 {body}
-<a class="cta" href="{ROOT}#boardsec">🍚 맛집 게시판에서 글 쓰기·더 보기</a>
-<a class="cta" href="{ROOT}">🎵 {SITE} 듣기</a>
-<p class="foot">{SITE}의 '지역별 맛집 자유게시판'에 이용자가 남긴 글입니다. 영업시간·가격 등은 방문 전에 확인하세요.</p>
 </main>
+<footer>© {e(SITE_NAME)}</footer>
 </body>
 </html>
 """
 
-def fetch_board(path):
-    if path:
-        with open(path, encoding="utf-8") as f:
-            return json.load(f)
-    with urllib.request.urlopen(DB + "/board.json", timeout=60) as r:
-        return json.loads(r.read().decode("utf-8"))
 
-def card(p, link=True):
-    where = " ".join(x for x in (p.get("g"), p.get("dn")) if x)
-    head = f'<a href="/matjip/p/{e(p["id"])}.html">{e(p["s"])}</a>' if link else e(p["s"])
-    bits = [x for x in (e(where), "추천: " + e(p.get("f")) if p.get("f") else "", e(p.get("c"))) if x]
-    return (f'<article class="card"><h3>{head}</h3><div class="meta">{" · ".join(bits)}</div>'
-            f'<p class="body"><b>{e(p["t"])}</b><br>{e(clip(p.get("b"), 140) if link else "").replace(chr(10), "<br>")}</p></article>')
+def breadcrumb(parts):
+    return {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {"@type": "ListItem", "position": i + 1, "name": n, "item": SITE + p}
+            for i, (n, p) in enumerate(parts)
+        ],
+    }
+
+
+def write(path_url, content):
+    rel = urllib.parse.unquote(path_url).strip("/")
+    f = ROOT / rel / "index.html"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(content, encoding="utf-8")
+
 
 def main():
-    src = sys.argv[sys.argv.index("--file") + 1] if "--file" in sys.argv else None
-    try:
-        raw = fetch_board(src)
-    except Exception as ex:
-        print("게시판을 불러오지 못해 기존 페이지를 그대로 둡니다:", ex)
-        sys.exit(1)
-    # 지역값이 짧은 이름(경북)이든 정식 이름(경상북도)이든 받아들입니다
-    alias = {}
-    for short, (_slug, full) in REGIONS.items():
-        alias[short] = short; alias[full] = short
-    if isinstance(raw, list):  # 혹시 목록 형태로 오면 번호를 글 ID로 씁니다
-        raw = {str(i): v for i, v in enumerate(raw) if v}
-    raw = raw if isinstance(raw, dict) else {}
-    seen, skipped, posts = {}, 0, []
-    for k, v in raw.items():
-        if not isinstance(v, dict):
-            skipped += 1; continue
-        r = alias.get(str(v.get("r") or "").strip())
-        seen[str(v.get("r"))] = seen.get(str(v.get("r")), 0) + 1
-        if v.get("t") and v.get("s") and r:
-            v = dict(v); v["r"] = r; v["id"] = k; v["ts"] = int(v.get("ts") or 0); posts.append(v)
-        else:
-            skipped += 1
-    print(f"[진단] 게시판에서 읽은 항목 {len(raw)}개 · 쓸 수 있는 글 {len(posts)}개 · 건너뜀 {skipped}개")
-    print(f"[진단] 지역값 목록: {seen}")
+    data, source = fetch_json()
+    items = as_items(data) if data is not None else []
+    log(f"[진단] 데이터 출처={source}, 읽은 항목 {len(items)}개")
+
+    posts = []
+    for it in items:
+        title = pick(it, "title")
+        if not title:
+            continue
+        posts.append({
+            "id": slug(str(it.get("_id", title))),
+            "title": title,
+            "region": norm_region(pick(it, "region")),
+            "body": pick(it, "body"),
+            "address": pick(it, "address"),
+            "phone": pick(it, "phone"),
+            "menu": pick(it, "menu"),
+            "hours": pick(it, "hours"),
+        })
+    regions = sorted({p["region"] for p in posts})
+    log(f"[진단] 쓸 수 있는 글 {len(posts)}개, 지역값 목록: {regions}")
+
+    urls = []
     if not posts:
-        print("보여줄 글이 없어 기존 페이지를 그대로 둡니다. (위 진단 줄을 알려 주세요)")
-        return
-    posts.sort(key=lambda p: p["ts"], reverse=True)
+        log("[진단] 만들 글이 없어 /matjip/ 은 만들지 않습니다. (오류 아님)")
+        update_sitemap([])
+        return 0
 
-    out = "matjip"
-    shutil.rmtree(out, ignore_errors=True)
-    os.makedirs(out + "/p")
-    urls = [(ROOT, datetime.now(KST).strftime("%Y-%m-%d"), "weekly", "1.0")]
-    day = lambda ts: datetime.fromtimestamp(ts / 1000, KST).strftime("%Y-%m-%d") if ts else datetime.now(KST).strftime("%Y-%m-%d")
-    by = {}
+    # 오래된 결과 지우기
+    if OUT.exists():
+        for p in sorted(OUT.rglob("*"), reverse=True):
+            p.unlink() if p.is_file() else p.rmdir()
+    OUT.mkdir(exist_ok=True)
+
+    # 글 페이지
     for p in posts:
-        by.setdefault(p["r"], []).append(p)
+        path = f"/matjip/p/{p['id']}/"
+        rpath = f"/matjip/{urllib.parse.quote(slug(p['region']))}/"
+        lines = []
+        if p["address"]:
+            lines.append(f"<li>주소: {e(p['address'])}</li>")
+        if p["phone"]:
+            lines.append(f"<li>전화: {e(p['phone'])}</li>")
+        if p["hours"]:
+            lines.append(f"<li>영업시간: {e(p['hours'])}</li>")
+        if p["menu"]:
+            lines.append(f"<li>메뉴: {e(p['menu'])}</li>")
+        info = f"<ul>{''.join(lines)}</ul>" if lines else ""
+        text = "".join(f"<p>{e(s)}</p>" for s in p["body"].split("\n") if s.strip())
+        body = (
+            f'<p class="meta"><a href="/matjip/">맛집</a> › <a href="{rpath}">{e(p["region"])}</a></p>'
+            f"<h1>{e(p['region'])} {e(p['title'])}</h1>{info}{text}"
+        )
+        ld = {"@context": "https://schema.org", "@type": "Restaurant", "name": p["title"]}
+        if p["address"]:
+            ld["address"] = p["address"]
+        if p["phone"]:
+            ld["telephone"] = p["phone"]
+        title = f"{p['region']} {p['title']} - 맛집 | {SITE_NAME}"
+        desc = short(p["body"] or f"{p['region']} {p['title']} 맛집 정보")
+        write(path, page(title, desc, path, body, [ld, breadcrumb([
+            ("맛집", "/matjip/"), (p["region"], rpath), (p["title"], path)])]))
+        urls.append(path)
 
-    # 글 하나당 페이지
-    for p in posts:
-        slug, full = REGIONS[p["r"]]
-        where = " ".join(x for x in (p.get("g"), p.get("dn")) if x) or full
-        title = clip(f'{p["s"]} - {where} {p.get("f") or ""} 맛집', 44) + f" | {SITE}"
-        desc = clip(f'{where} {p["s"]}. 추천 음식: {p.get("f") or "-"}. {p.get("b") or ""}', 150)
-        m = safe_map(p.get("m"))
-        body = (f'<h1>{e(p["s"])}</h1><div class="meta">{e(full)} {e(where)} · {e(p.get("c") or "")} · {day(p["ts"])}</div>'
-                f'<h2>{e(p["t"])}</h2><p>{e(p.get("b")).replace(chr(10), "<br>")}</p>'
-                f'<p><b>추천 음식</b>: {e(p.get("f"))}<br><b>주소</b>: {e(full)} {e(where)} {e(p.get("a"))}</p>'
-                + (f'<p><a href="{e(m)}" target="_blank" rel="nofollow ugc noopener noreferrer">🗺 지도에서 보기</a></p>' if m else "")
-                + f'<p><a href="/matjip/{slug}/">{e(full)} 맛집 더 보기</a></p>')
-        crumbs = [(SITE, ROOT), ("맛집 게시판", ROOT + "matjip/"), (f"{full} 맛집", f"{ROOT}matjip/{slug}/"), (p["s"], f'{ROOT}matjip/p/{p["id"]}.html')]
-        with open(f'{out}/p/{p["id"]}.html', "w", encoding="utf-8") as f:
-            f.write(page(title, desc, crumbs[-1][1], body, crumbs))
-        urls.append((crumbs[-1][1], day(p["ts"]), "monthly", "0.5"))
+    # 지역 페이지
+    for r in regions:
+        rpath = f"/matjip/{urllib.parse.quote(slug(r))}/"
+        li = "".join(
+            f'<li><a href="/matjip/p/{p["id"]}/">{e(p["title"])}</a></li>'
+            for p in posts if p["region"] == r
+        )
+        body = f'<p class="meta"><a href="/matjip/">맛집</a> › {e(r)}</p><h1>{e(r)} 맛집 모음</h1><ul>{li}</ul>'
+        write(rpath, page(f"{r} 맛집 모음 | {SITE_NAME}", f"{r} 지역 맛집 목록입니다.", rpath, body,
+                          breadcrumb([("맛집", "/matjip/"), (r, rpath)])))
+        urls.append(rpath)
 
-    # 지역별 목록
-    for r, lst in by.items():
-        slug, full = REGIONS[r]
-        os.makedirs(f"{out}/{slug}", exist_ok=True)
-        title = f"{full} 맛집 추천 {len(lst)}곳 - 지역별 맛집 자유게시판 | {SITE}"
-        names = ", ".join(p["s"] for p in lst[:6])
-        desc = clip(f"{full} 맛집 이용자 추천 {len(lst)}곳: {names} 등. 추천 음식과 주소를 확인하세요.", 150)
-        body = (f"<h1>{e(full)} 맛집 추천</h1><p>{SITE} 맛집 게시판에 이용자가 올린 {e(full)} 맛집 {len(lst)}곳입니다.</p>"
-                + "".join(card(p) for p in lst))
-        crumbs = [(SITE, ROOT), ("맛집 게시판", ROOT + "matjip/"), (f"{full} 맛집", f"{ROOT}matjip/{slug}/")]
-        with open(f"{out}/{slug}/index.html", "w", encoding="utf-8") as f:
-            f.write(page(title, desc, crumbs[-1][1], body, crumbs))
-        urls.append((crumbs[-1][1], day(max(p["ts"] for p in lst)), "weekly", "0.7"))
+    # 목록 페이지
+    sections = ""
+    for r in regions:
+        rpath = f"/matjip/{urllib.parse.quote(slug(r))}/"
+        li = "".join(
+            f'<li><a href="/matjip/p/{p["id"]}/">{e(p["title"])}</a></li>'
+            for p in posts if p["region"] == r
+        )
+        sections += f'<div class="card"><h2><a href="{rpath}">{e(r)}</a></h2><ul>{li}</ul></div>'
+    body = f"<h1>지역별 맛집 목록</h1>{sections}"
+    write("/matjip/", page(f"지역별 맛집 목록 | {SITE_NAME}", "지역별 맛집을 한곳에서 확인하세요.",
+                           "/matjip/", body, breadcrumb([("맛집", "/matjip/")])))
+    urls.insert(0, "/matjip/")
 
-    # 전국 모음
-    links = "".join(f'<li><a href="/matjip/{REGIONS[r][0]}/">{e(REGIONS[r][1])} 맛집</a> ({len(by[r])}곳)</li>'
-                    for r in REGIONS if r in by)
-    body = (f"<h1>지역별 맛집 자유게시판 · 전국 맛집 모음</h1><p>{SITE}을 듣는 사람들이 직접 추천한 동네 맛집입니다. 지역을 골라 보세요.</p>"
-            f'<ul class="l">{links}</ul><h2>최근 올라온 맛집</h2>' + "".join(card(p) for p in posts[:20]))
-    crumbs = [(SITE, ROOT), ("맛집 게시판", ROOT + "matjip/")]
-    desc = clip(f"{SITE} 지역별 맛집 자유게시판 — 전국 맛집 {len(posts)}곳. 서울·부산·경북 등 지역별 이용자 추천 맛집과 추천 음식.", 150)
-    with open(f"{out}/index.html", "w", encoding="utf-8") as f:
-        f.write(page(f"지역별 맛집 자유게시판 · 전국 맛집 추천 | {SITE}", desc, crumbs[-1][1], body, crumbs))
-    urls.append((crumbs[-1][1], day(posts[0]["ts"]), "daily", "0.8"))
+    update_sitemap(urls)
+    log(f"완료: 글 {len(posts)}개, 페이지 {len(urls)}개")
+    return 0
 
-    with open("sitemap.xml", "w", encoding="utf-8") as f:
-        f.write('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n')
-        for loc, lm, cf, pr in urls:
-            f.write(f"  <url><loc>{e(loc)}</loc><lastmod>{lm}</lastmod><changefreq>{cf}</changefreq><priority>{pr}</priority></url>\n")
-        f.write("</urlset>\n")
-    print(f"완료: 글 {len(posts)}개, 지역 {len(by)}곳, 페이지 {len(urls)}개")
+
+def update_sitemap(matjip_urls):
+    sm = ROOT / "sitemap.xml"
+    keep = []
+    if sm.exists():
+        for loc in re.findall(r"<loc>(.*?)</loc>", sm.read_text(encoding="utf-8")):
+            if "/matjip/" not in loc:
+                keep.append(loc)
+    if not keep:
+        keep = [SITE + "/"]
+    rows = []
+    for loc in keep + [SITE + u for u in matjip_urls]:
+        rows.append(f"<url><loc>{html.escape(loc)}</loc><lastmod>{TODAY}</lastmod></url>")
+    sm.write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "\n".join(rows) + "\n</urlset>\n",
+        encoding="utf-8",
+    )
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
