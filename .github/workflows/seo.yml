@@ -1,0 +1,28 @@
+name: seo-pages
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # 5분마다 (GitHub 최소 간격)
+  workflow_dispatch: {}
+concurrency:
+  group: seo-pages
+  cancel-in-progress: false
+permissions:
+  contents: write
+  pages: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/generate.py
+      - name: Commit
+        id: commit
+        run: |
+          git config user.name "seo-bot"; git config user.email "seo-bot@users.noreply.github.com"
+          git add -A board promo sitemap.xml
+          if git diff --cached --quiet; then echo "changed=0" >> $GITHUB_OUTPUT; else git commit -m "update seo pages" && git push && echo "changed=1" >> $GITHUB_OUTPUT; fi
+      - name: Trigger Pages build
+        if: steps.commit.outputs.changed == '1'
+        continue-on-error: true
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: gh api -X POST repos/${{ github.repository }}/pages/builds
