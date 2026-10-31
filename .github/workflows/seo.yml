@@ -31,6 +31,7 @@ jobs:
           SECTIONS = {
               "board": {"name": "지역별 맛집 게시판", "icon": "🍚"},
               "promo": {"name": "지역별 동네 홍보", "icon": "📣"},
+              "delivery": {"name": "배달음식점", "icon": "🛵"},
           }
 
           def get(path, test_dir):
@@ -60,7 +61,7 @@ jobs:
           ul{padding-left:1.1em}li{margin:.3em 0}nav a{margin-right:12px}"""
 
           def page(title, desc, canon, body, ld=None):
-              ldtag = f'<script type="application/ld+json">{json.dumps(ld, ensure_ascii=False)}</script>' if ld else ""
+              ldtag = ('<script type="application/ld+json">' + json.dumps(ld, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026") + '</script>') if ld else ""
               return f"""<!DOCTYPE html>
           <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
           <title>{e(title)}</title><meta name="description" content="{e(desc)}">
@@ -70,7 +71,7 @@ jobs:
           <meta property="og:site_name" content="Radiola 웹 라디오"><meta property="og:image" content="{SITE}/og-image.png">
           <meta property="og:locale" content="ko_KR"><link rel="icon" href="/favicon.ico">
           <style>{CSS}</style>{ldtag}</head><body><main>
-          <nav><a href="/">Radiola 홈</a><a href="/board/">맛집 게시판</a><a href="/promo/">동네 홍보</a></nav>
+          <nav><a href="/">Radiola 홈</a><a href="/board/">맛집 게시판</a><a href="/promo/">동네 홍보</a><a href="/delivery/">배달음식점</a></nav>
           {body}
           <p><a class="cta" href="/">🎵 Radiola 웹 라디오 열기 (글쓰기·댓글)</a></p>
           </main></body></html>"""
@@ -78,7 +79,53 @@ jobs:
           def loc(p):
               return " ".join(x for x in [p.get("r"), p.get("g"), p.get("dn")] if x)
 
+
+          def as_list(v):
+              if isinstance(v, list): return [x for x in v if x]
+              if isinstance(v, dict): return [x for x in v.values() if x]
+              return []
+
+          def zone_text(zs):
+              g = {}
+              for x in zs:
+                  x = str(x); i = x.rfind("/")
+                  if i < 0: continue
+                  g.setdefault(x[:i], []).append(x[i + 1:])
+              return " / ".join((a + " 전체") if "*" in b else (a + " " + "·".join(b)) for a, b in g.items())
+
+          def ptitle(kind, p):
+              return p["s"] if kind == "delivery" else p["t"]
+
+          def build_delivery(p):
+              zones = zone_text(as_list(p.get("zs"))) or p.get("d", "")
+              menus = [m for m in as_list(p.get("mn")) if isinstance(m, dict) and m.get("n")]
+              title = clip(f"{p['s']} 배달 - {p['r']} {zones} {p.get('c','')}", 70)
+              desc = clip(f"{p['r']} {zones} {p.get('c','')} 배달음식점 {p['s']}. 메뉴: " + ", ".join(m["n"] for m in menus[:6]) + ". " + str(p.get("b", "")), 150)
+              rows = ""
+              for k, v in [("분류", p.get("c")), ("배달 가능 지역", zones), ("추가 설명", p.get("d") if p.get("zs") else ""),
+                           ("영업시간", p.get("h")), ("최소 주문", p.get("o")), ("전화", p.get("p"))]:
+                  if v: rows += f"<li>{k}: {e(v)}</li>"
+              if p.get("m"):
+                  rows += f'<li>링크: <a href="{e(p["m"])}" rel="nofollow noopener" target="_blank">지도 보기</a></li>'
+              menu_html = ""
+              if menus:
+                  menu_html = "<h2>메뉴·가격</h2><ul>" + "".join(
+                      f"<li>{e(m['n'])} — {int(m.get('p') or 0):,}원</li>" for m in menus[:15]) + "</ul>"
+              ld = {"@context": "https://schema.org", "@type": "Restaurant", "name": p["s"],
+                    "servesCuisine": p.get("c", ""), "areaServed": zones, "telephone": p.get("p", ""),
+                    "address": {"@type": "PostalAddress", "addressCountry": "KR", "addressRegion": p["r"]},
+                    "description": clip(p.get("b"), 300)}
+              if menus:
+                  ld["hasMenu"] = {"@type": "Menu", "hasMenuItem": [
+                      {"@type": "MenuItem", "name": m["n"], "offers": {"@type": "Offer", "price": str(int(m.get("p") or 0)), "priceCurrency": "KRW"}}
+                      for m in menus[:15]]}
+              body = (f'<p class="meta">🛵 배달음식점 · {e(p["r"])} · 등록 {iso(p.get("ts"))}</p><h1>{e(p["s"])}</h1><ul>{rows}</ul>'
+                      + (f'<div class="body">{e(p.get("b"))}</div>' if p.get("b") else "") + menu_html)
+              return page(title, desc, f"{SITE}/delivery/{p['id']}.html", body, ld)
+
           def build_post(kind, p):
+              if kind == "delivery":
+                  return build_delivery(p)
               place = loc(p)
               if kind == "board":
                   title = f"{p['t']} - {p.get('s','')} ({place} {p.get('f','')})".replace("  ", " ")
@@ -110,7 +157,9 @@ jobs:
                   data = get(kind, test)
                   posts = []
                   for pid, v in data.items():
-                      if not isinstance(v, dict) or not v.get("t") or not v.get("r"): continue
+                      if not isinstance(v, dict) or not v.get("r"): continue
+                      if kind != "delivery" and not v.get("t"): continue
+                      if kind == "delivery" and not v.get("s"): continue
                       if kind == "board" and not v.get("s"): continue
                       if kind == "promo" and v.get("u") in bans: continue
                       posts.append(dict(v, id=pid))
@@ -127,7 +176,7 @@ jobs:
                   body = f'<h1>{SECTIONS[kind]["icon"]} {SECTIONS[kind]["name"]}</h1><p class="meta">전국 {len(posts)}개 글</p>'
                   for r, ps in by_region.items():
                       body += f"<h2>{e(r)}</h2><ul>" + "".join(
-                          f'<li><a href="/{kind}/{e(p["id"])}.html">{e(p["t"])}</a> <span class="meta">{e(loc(p))}</span></li>' for p in ps) + "</ul>"
+                          f'<li><a href="/{kind}/{e(p["id"])}.html">{e(ptitle(kind, p))}</a> <span class="meta">{e(loc(p) if kind != "delivery" else p.get("c",""))}</span></li>' for p in ps) + "</ul>"
                   open(os.path.join(out, "index.html"), "w", encoding="utf-8").write(
                       page(f'{SECTIONS[kind]["name"]} - Radiola 웹 라디오', f'{SECTIONS[kind]["name"]} 전체 글 목록 (지역별)', f"{SITE}/{kind}/", body))
                   print(kind, len(posts), "글")
@@ -145,7 +194,7 @@ jobs:
         id: commit
         run: |
           git config user.name "seo-bot"; git config user.email "seo-bot@users.noreply.github.com"
-          git add -A board promo sitemap.xml
+          git add -A board promo delivery sitemap.xml
           if git diff --cached --quiet; then echo "changed=0" >> $GITHUB_OUTPUT; else git commit -m "update seo pages" && git push && echo "changed=1" >> $GITHUB_OUTPUT; fi
       - name: Trigger Pages build
         if: steps.commit.outputs.changed == '1'
