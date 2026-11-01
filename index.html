@@ -301,7 +301,7 @@ main .chat.sp.dopen{display:block;position:fixed;top:0;bottom:0;right:80px;width
 #plbox .plt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #plbox .plr .addhome{padding:1px 7px;font-size:12px}
 #plbox .plm{opacity:.7;padding:6px 0}
-#roomview.mini .mwsize.mwvolrow{display:flex;margin-bottom:6px}
+#roomview.mini .mwsize.mwvolrow{display:flex;margin-bottom:6px}#roomview.mini .mwsize.vshow{display:flex;margin-bottom:6px}
 .mwvolrow label{color:var(--amber);font-weight:700}
 .rw{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}.rw[hidden]{display:none}
 .tvnotice{font-size:12.5px;line-height:1.6;color:var(--ink);background:#1a0f08;border:1px solid #b99a5b66;border-left:3px solid var(--amber);border-radius:6px;padding:8px 10px;margin:0 0 8px}
@@ -983,7 +983,8 @@ main .chat.sp.dopen{display:block;position:fixed;top:0;bottom:0;right:80px;width
   <div class="rvhead"><strong id="rvtitle"></strong><span style="display:flex;gap:6px;flex-shrink:0"><span id="rscd" class="chatnote" hidden style="margin:0;align-self:center;color:var(--amber);white-space:nowrap"></span><button class="addhome danger" style="margin:0" type="button" id="rvforce" hidden title="관리자 권한으로 이 방을 강제 폭파합니다">💣 강제 폭파</button><span id="tkbadge" class="blink" hidden>🔔 요청</span><button class="addhome" style="margin:0" type="button" id="rvside" title="채팅창을 영상 옆 오른쪽/왼쪽/아래로 옮깁니다">💬 채팅: 오른쪽 ▶</button><button class="addhome" style="margin:0" type="button" id="rvdock" title="작은 창일 때 방 영상을 메인 TV 창에서 재생합니다">📺 TV로 보기: 켜짐</button><button class="addhome" style="margin:0" type="button" id="rvmini" aria-label="작은 창으로 줄이기">▁ 작게</button><button class="addhome" style="margin:0" type="button" id="rvleave">← 나가기</button></span></div>
   <section id="mediawin" hidden aria-label="미디어 창">
     <div class="mwhead"><strong>📺 미디어 창</strong><a id="mwlink" target="_blank" rel="noopener noreferrer" hidden style="color:var(--amber);font-size:13px;white-space:nowrap">↗ 유튜브에서 직접 열기</a><button class="addhome" style="margin:0;padding:3px 9px;font-size:12px" type="button" id="mwre" hidden title="영상이 안 나올 때 눌러 보세요">🔄 영상 다시 연결</button><span id="mwnow">대기 중</span></div>
-    <div class="mwsize"><label for="mwsize">🔍 화면 크기</label><input type="range" id="mwsize" min="50" max="200" step="5" value="100" aria-label="미디어 화면 크기 조절"><output id="mwsizev" for="mwsize">100%</output><button class="addhome" type="button" id="mwsizer" title="기본 크기로">↺ 기본</button><label class="chatnote" style="margin:0;cursor:pointer;white-space:nowrap" title="채팅 문구가 영상 위로 자막처럼 올라갑니다"><input type="checkbox" id="ccon" checked> 💬 채팅을 영상 위에 자막처럼</label><label class="chatnote" id="ccadml" hidden style="margin:0;cursor:pointer;white-space:nowrap;color:var(--amber)" title="관리자·방장 전용: 해제하면 이 방 모든 사람의 영상 화면에 채팅 글씨가 나오지 않습니다"><input type="checkbox" id="ccadm" checked> 🛡 관리자·방장: 모두에게 채팅 자막 표시</label><label class="chatnote" id="avadml" hidden style="margin:0;cursor:pointer;white-space:nowrap;color:var(--amber)" title="관리자·방장 전용: 해제하면 이 방에서는 손님 사진이 보이지 않습니다"><input type="checkbox" id="avadm" checked> 🛡 관리자·방장: 손님 사진 표시</label><button class="addhome" type="button" id="lisfs" style="display:none;margin:0 0 0 auto" title="영상을 전체화면으로 봅니다 (나갈 때는 Esc)" aria-label="영상 전체화면">⛶ 전체화면</button></div>
+    <div class="mwsize"><label for="mwsize">🔍 화면 크기</label><input type="range" id="mwsize" min="50" max="200" step="5" value="100" aria-label="미디어 화면 크기 조절"><output id="mwsizev" for="mwsize">100%</output><button class="addhome" type="button" id="mwsizer" title="기본 크기로">↺ 기본</button><label class="chatnote" id="ccadml" hidden style="margin:0;cursor:pointer;white-space:nowrap;color:var(--amber)" title="관리자·방장 전용: 해제하면 이 방 모든 사람의 영상 화면에 채팅 글씨가 나오지 않습니다"><input type="checkbox" id="ccadm" checked> 🛡 관리자·방장: 모두에게 채팅 자막 표시</label><label class="chatnote" id="avadml" hidden style="margin:0;cursor:pointer;white-space:nowrap;color:var(--amber)" title="관리자·방장 전용: 해제하면 이 방에서는 손님 사진이 보이지 않습니다"><input type="checkbox" id="avadm" checked> 🛡 관리자·방장: 손님 사진 표시</label><button class="addhome" type="button" id="lisfs" style="display:none;margin:0 0 0 auto" title="영상을 전체화면으로 봅니다 (나갈 때는 Esc)" aria-label="영상 전체화면">⛶ 전체화면</button></div>
+    <div class="mwsize vshow" id="vshowrow"><strong style="font-size:13px;color:var(--amber)">👁 영상 볼 때 화면에 표시</strong><label class="chatnote" style="margin:0;cursor:pointer;white-space:nowrap" title="체크를 풀면 채팅 글씨가 영상 위로 올라오지 않습니다 (강의·토론할 때는 체크)"><input type="checkbox" id="ccon" checked> 💬 채팅 글씨</label><label class="chatnote" style="margin:0;cursor:pointer;white-space:nowrap" title="체크를 풀면 다른 사람이 누른 👏박수·💯100점 등 토론 반응 이모지가 화면에 떠오르지 않습니다 (반응 버튼·집계는 그대로, 내가 누른 것은 보임)"><input type="checkbox" id="rxon" checked> 💯 박수·100점 토론 반응</label></div>
     <div class="mwsize mwvolrow" id="mwvolrow"><label for="mwvol">🔊 볼륨</label><input type="range" id="mwvol" min="0" max="100" step="1" value="30" aria-label="전체 볼륨 (유튜브·링크 영상·방 소리 한꺼번에)"><output id="mwvolv" for="mwvol">30%</output><button class="addhome" type="button" id="mwmute" title="유튜브·영상·방 소리를 한꺼번에 껐다 켭니다">🔇 음소거</button><span class="chatnote" style="margin:0">유튜브·영상·방 소리 한꺼번에</span></div>
     <div class="mwsize" id="lagrow" hidden><label for="lagsel">🐢 끊김 줄이기</label><select id="lagsel" aria-label="끊김 줄이기 (영상을 조금 늦게 재생)" style="background:#241610;color:var(--ink);border:1px solid #b99a5b88;border-radius:6px;padding:4px 8px;font-size:13px"><option value="0">끔 (가장 빠름)</option><option value="1000">1초 늦게</option><option value="1500">1.5초 늦게 (기본)</option><option value="2000">2초 늦게</option><option value="3000">3초 늦게</option><option value="4000">4초 늦게 (소리가 끊길 수 있음)</option></select><span class="chatnote" style="margin:0">늦게 볼수록 덜 끊깁니다</span></div>
     <div class="mwsize" id="lecmeter" hidden><strong style="color:var(--amber)">🎓 보내는 소리</strong><span>PC 소리 <meter id="mtsys" min="0" max="1" value="0" style="width:90px"></meter></span><span>내 마이크 <meter id="mtmic" min="0" max="1" value="0" style="width:90px"></meter></span><button class="addhome" type="button" id="lecmic" style="margin:0" title="강의 중 내 마이크만 끄거나 켭니다 (PC 소리는 계속 나갑니다)">🎤 마이크 끄기</button><span id="mtmsg" style="flex-basis:100%;font-size:13px"></span></div>
@@ -1694,6 +1695,9 @@ function avSync(){
 // ===== 채팅 문구를 영상 화면 위로 자막처럼 올리기 (음악 방·영상 방) =====
 var CC = {room: '', seen: {}, n: 0};
 function ccGlobalOff(){ const c = CTL.map && CTL.map._cc; return !!(c && c.off); }   // 관리자가 이 방 전체에서 끔
+// 💯 박수·100점 등 토론 반응 이모지를 화면에 띄울지 (체크 해제 시 다른 사람 반응은 안 보임 · 집계는 그대로)
+let RXSHOW = true; try { RXSHOW = localStorage.getItem('radio_rxshow') !== '0'; } catch(e){}
+function rxShowSet(on){ RXSHOW = !!on; try { localStorage.setItem('radio_rxshow', RXSHOW ? '1' : '0'); } catch(e){} if (!RXSHOW){ ['rxfloat', 'mrxfloat'].forEach(id => { const f = document.getElementById(id); if (f) f.textContent = ''; }); } }
 function ccOn(){ if (ccGlobalOff()) return false; const k = $('ccon'); return !k || k.checked; }
 function ccSync(){   // 관리자 체크박스 표시·상태 맞추기, 관리자가 껐으면 내 화면 자막도 치움
   const adm = !!(liveRoom && (rmAdm() || isHost())), l = $('ccadml'), a = $('ccadm'), k = $('ccon'), off = ccGlobalOff();
@@ -2871,7 +2875,8 @@ setInterval(botCountTick, BOT_CFG.every);
 const MRX = [['100','💯','100점'],['clap','👏','박수'],['fire','🔥','불꽃'],['lol','😂','웃김'],['hmm','🤔','의문'],['wow','😮','놀람']];
 const MRX_MAP = {}; MRX.forEach(x => { MRX_MAP[x[0]] = x; });
 let mrxLast = 0, mrxSentAt = 0, mrxFail = false; const mrxSeen = {};
-function mrxFloat(k, name){
+function mrxFloat(k, name, force){
+  if (!RXSHOW && !force) return;
   let ly = document.getElementById('mrxfloat');
   if (!ly){ ly = document.createElement('div'); ly.id = 'mrxfloat'; ly.setAttribute('aria-hidden', 'true'); ly.style.cssText = 'position:fixed;left:0;right:0;bottom:70px;height:0;pointer-events:none;z-index:85'; document.body.append(ly); }
   if (ly.children.length > 24) return;
@@ -2906,7 +2911,7 @@ async function mrxPoll(){
 function mrxPress(k){
   const n = Date.now(); if (n - mrxLast < 300) return; mrxLast = n;
   let nm = ''; try { nm = String(($('nick').value || '').trim()).slice(0, 12); } catch(e){}
-  nm = nm || '나'; mrxFloat(k, nm); mrxSend(k, nm);
+  nm = nm || '나'; mrxFloat(k, nm, true); mrxSend(k, nm);
 }
 (() => { const row = $('mrxrow'); if (!row) return;
   MRX.forEach(([k, ic, nm]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'addhome'; b.style.cssText = 'margin:0;padding:6px 12px'; b.textContent = ic + ' ' + nm; b.onclick = () => mrxPress(k); row.append(b); });
@@ -3567,6 +3572,7 @@ async function capPoll(){
 setInterval(capPoll, 1500);
 try { const k = $('ccon'); if (k){ k.checked = localStorage.getItem('radio_chatcap') !== '0'; k.onchange = () => { try { localStorage.setItem('radio_chatcap', k.checked ? '1' : '0'); } catch(e){} if (!k.checked){ const ov = $('chatcap'); if (ov) ov.textContent = ''; } }; } } catch(e){}
 try { $('ccadm').onchange = e => ccAdminSet(e.target.checked); } catch(e){}
+try { const r = $('rxon'); if (r){ r.checked = RXSHOW; r.onchange = () => rxShowSet(r.checked); } } catch(e){}
 try {
   $('avbtn').onclick = () => $('avfile').click();
   $('avfile').onchange = e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) avUpload(f); };
@@ -5226,7 +5232,8 @@ const RX_EM = [['100', '💯', '100점'], ['clap', '👏', '박수'], ['fire', '
 const RX_ICON = {}; RX_EM.forEach(x => { RX_ICON[x[0]] = x[1]; });
 const rx = {pv: 0, rv: 0, st: '', sts: 0, hd: 0, rc: {}, rl: '', rt: 0, rs: 0, seenRs: 0, last: {}, init: false, rid: '', tm: 0, sig: '', lastClick: 0};
 function rxClear(){ rx.st = ''; rx.sts = 0; rx.hd = 0; rx.rc = {}; rx.rl = ''; rx.rt = 0; }
-function rxFloat(k, name){
+function rxFloat(k, name, force){
+  if (!RXSHOW && !force) return;
   const f = $('rxfloat'); if (!f || f.children.length > 24) return;
   const d = document.createElement('div'); d.className = 'rxf'; d.style.left = (6 + Math.random() * 84) + '%';
   const e = document.createElement('span'); e.textContent = RX_ICON[k] || k;
@@ -5278,7 +5285,7 @@ function rxStance(k){ if (!rxNeed()) return; rx.st = rx.st === k ? '' : k; rx.st
 function rxHand(){ if (!rxNeed()) return; rx.hd = rx.hd ? 0 : 1; rxSend(); }
 function rxReact(k){
   if (!rxNeed()) return; const n = Date.now(); if (n - rx.lastClick < 300) return; rx.lastClick = n;
-  rx.rc[k] = (rx.rc[k] || 0) + 1; rx.rl = k; rx.rt = n; rx.last[myId] = n; rxFloat(k, myNick()); rxSend();
+  rx.rc[k] = (rx.rc[k] || 0) + 1; rx.rl = k; rx.rt = n; rx.last[myId] = n; rxFloat(k, myNick(), true); rxSend();
 }
 function rxPrivate(){ if (!isHost() || !liveRoom) return; rx.pv = rx.pv ? 0 : 1; rx.rv = 0; rxSend(); }
 function rxReveal(){ if (!isHost() || !liveRoom || !rx.pv) return; rx.rv = rx.rv ? 0 : 1; rxSend(); }
@@ -7026,7 +7033,10 @@ function lisFs(){
   const ov = mkCtl('display:none;position:absolute;left:10px;bottom:10px;z-index:5;align-items:center;gap:8px;background:#000c;border:1px solid #b99a5b88;border-radius:8px;padding:4px 8px');
   ov.id = 'lisctl'; ov.style.transition = 'opacity .25s'; scr.append(ov);
   const b2 = document.createElement('button'); b2.type = 'button'; b2.className = 'addhome'; b2.textContent = '✕ 전체화면 나가기';
-  b2.style.cssText = 'margin:0 0 0 8px;padding:4px 10px;white-space:nowrap'; b2.onclick = lisFs; ov.append(b2); updAll();
+  b2.style.cssText = 'margin:0 0 0 8px;padding:4px 10px;white-space:nowrap'; b2.onclick = lisFs; const lc = document.createElement('label'); lc.style.cssText = 'font-size:13px;white-space:nowrap;cursor:pointer;display:flex;align-items:center;gap:4px;margin-left:8px';
+  const lk = document.createElement('input'); lk.type = 'checkbox'; lk.id = 'ccon2'; lc.append(lk, '💬 채팅 글씨');
+  lk.onchange = () => { const m = $('ccon'); if (m && m.checked !== lk.checked){ m.checked = lk.checked; m.dispatchEvent(new Event('change')); } };
+  ov.append(lc, b2); updAll();
   let hideT = 0, wasFull = false;
   const isFull = () => document.fullscreenElement === scr || document.webkitFullscreenElement === scr;
   const wake = () => {
@@ -7042,6 +7052,7 @@ function lisFs(){
     const full = document.fullscreenElement === scr || document.webkitFullscreenElement === scr;
     bar.style.display = 'none';
     ov.style.display = (listening && full) ? 'flex' : 'none';
+    try { const m = $('ccon'), lk = $('ccon2'); if (m && lk){ lk.checked = m.checked; lk.disabled = m.disabled; } } catch(e){}
     if (full && !wasFull) wake();
     if (!full){ clearTimeout(hideT); ov.style.opacity = '1'; ov.style.pointerEvents = 'auto'; }
     wasFull = full;
