@@ -1736,7 +1736,7 @@ function ccFeed(all, inLive){
   const show = inLive && ccOn() && !$('mediawin').hidden;
   const now = Date.now();
   all.forEach(c => {
-    if (!c || !c.t) return;
+    if (!c || !c.t || c.news) return;
     const k = (c.ts || 0) + '|' + (c.k || c.n) + '|' + c.t;
     if (CC.seen[k]) return; CC.seen[k] = 1; CC.n++;
     if (first || !show) return;                         // 방에 들어올 때 이미 있던 글은 올리지 않음
@@ -1751,6 +1751,7 @@ function renderChat(forceBottom){
   log.innerHTML = '';
   let all = chat.concat(pending);
   try { const bk = roomPath(); if (BOT && BOT.on && BOT.msgs.length && botKeyOk(bk)){ const bm = BOT.msgs.filter(m => m.r === bk); if (bm.length){ all = all.concat(bm); all.sort((a, b) => (a.ts || 0) - (b.ts || 0)); } } } catch(e){}   // 🤖 가상 손님(이 기기에서만)
+  try { if (window.NEWSM && window.NEWSM.length && $('room').value.indexOf('u:') !== 0){ all = all.concat(window.NEWSM); all.sort((a, b) => (a.ts || 0) - (b.ts || 0)); } } catch(e){}   // 📰 실시간 뉴스(이 기기에만 표시)
   all = all.filter(c => !isBlockedMsg(c) && !c.cp);
   try { if (liveRoom && $('room').value === 'b:' + liveRoom.id) all = all.filter(c => !(c.k && c.k !== UID && !c.h && ctlMuted(c.k))); } catch(e){}
   if (!all.length){ log.innerHTML = '<div class="empty">첫 메시지를 남겨 보세요.</div>'; return; }
@@ -1760,7 +1761,8 @@ function renderChat(forceBottom){
   all.forEach(c => {
     const d = document.createElement('div'); d.className = 'm' + (isDmRoom ? ' wh' : '');
     const b = document.createElement('b'); b.textContent = (c.bot ? '🤖 ' : '') + ((c.h || (inLive && !c.bot && c.k && ctlMgr(c.k))) ? '👑 ' : '') + c.n;
-    if (c.bot){ b.title = '가상 손님 (미리 정한 대사만 하는 봇)'; }
+    if (c.news){ b.title = '구글 뉴스 자동 소식 (이 기기에만 표시)'; }
+    else if (c.bot){ b.title = '가상 손님 (미리 정한 대사만 하는 봇)'; }
     else if (c.k === UID || c.n === $('nick').value.trim()){ b.style.cursor = 'pointer'; b.title = '이름 바꾸기'; b.onclick = renameMe; }
     else { b.className = 'nm'; b.title = '눌러서 귓속말 · 차단'; b.onclick = ev => nameMenu(ev, c); }
     const t = document.createElement('span');
@@ -1769,7 +1771,8 @@ function renderChat(forceBottom){
       const mode = (isHost() || fromHost) ? 'open' : (c.k === UID ? 'own' : 'hide');
       t.append(chatLinkNodes(String(c.t), mode));
       if (mode === 'own'){ const n = document.createElement('small'); n.textContent = ' 🔒(링크는 방장에게만 보임)'; n.style.color = 'var(--amber)'; t.append(n); }
-    } else t.textContent = c.t;
+    } else if (c.news && /^https?:\/\//i.test(c.link || '')){ const a = document.createElement('a'); a.href = c.link; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.style.color = 'var(--amber)'; a.textContent = c.t; t.append(a); }
+    else t.textContent = c.t;
     const s = document.createElement('small'); s.textContent = hhmm(c.ts);
     if (isDmRoom){ const w = document.createElement('span'); w.className = 'wt'; w.textContent = '(귓속말)'; d.append(b, w, t, s); }
     else d.append(b, t, s);
@@ -5262,10 +5265,11 @@ function rxApply(){
   });
   list.forEach(m => { if (m.rt && rx.last[m.k] !== m.rt){ if (rx.init && m.k !== myId && RX_ICON[m.rl]) rxFloat(m.rl, m.n); rx.last[m.k] = m.rt; } });
   if (memList.length) rx.init = true;
-  const sig = JSON.stringify([cnt, tot, hands, rx.st, rx.hd, isHost(), pv, rv]); if (sig === rx.sig) return; rx.sig = sig;
+  const sig = JSON.stringify([cnt, tot, hands, rx.st, rx.hd, isHost(), pv, rv, window.NEWSTOP || null]); if (sig === rx.sig) return; rx.sig = sig;
   box.innerHTML = '';
   const mk = (txt, fn, on) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'addhome rxb' + (on ? ' on' : ''); b.textContent = txt; b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.onclick = fn; return b; };
   const t = document.createElement('div'); t.className = 'rxt'; t.textContent = '🗳 토론 반응 — 누르면 방 모두에게 보입니다'; box.append(t);
+  if (window.NEWSTOP){ const nw = document.createElement('div'); nw.className = 'rxh'; nw.style.cssText = 'margin:0 0 6px;color:var(--amber)'; const na = document.createElement(/^https?:\/\//i.test(window.NEWSTOP.link || '') ? 'a' : 'span'); if (na.tagName === 'A'){ na.href = window.NEWSTOP.link; na.target = '_blank'; na.rel = 'noopener noreferrer'; na.style.color = 'var(--amber)'; } na.textContent = '📰 토론 소재: ' + window.NEWSTOP.title; nw.append(na); box.append(nw); }
   const r1 = document.createElement('div'); r1.className = 'rxrow';
   RX_ST.forEach(([k, ic, nm]) => r1.append(mk(hide ? ic + ' ' + nm : ic + ' ' + nm + ' ' + cnt[k], () => rxStance(k), rx.st === k)));
   r1.append(mk('🙋 손들기' + (rx.hd ? ' (취소)' : ''), rxHand, !!rx.hd));
@@ -7455,6 +7459,35 @@ $('rssadd').onclick = async () => {
 rssAdmShow();
 setTimeout(rssLoad, 2500);   // 접속 직후 바쁘지 않게 조금 뒤에 첫 불러오기
 setInterval(() => { if (!document.hidden) rssLoad(); }, RSS_EVERY);
+
+// ===== 📰 이진주방산업 실시간 소식(구글 뉴스): 20초마다 확인해 새 기사만 채팅창·토론 박스에 넣습니다 (이 기기에만 표시, 서버에 저장하지 않음) =====
+const NEWS_URL = RSS_PROXY.replace('jin_rss.php', 'jin_news.php');   // jin_rss.php 와 같은 폴더의 jin_news.php
+const NEWS_EVERY = 20000, NEWS_FIRST = 2;   // 확인 간격(ms) · 처음 접속 때 보여줄 기사 수
+window.NEWSM = []; window.NEWSTOP = null;
+let newsSeen = new Set(); try { JSON.parse(localStorage.getItem('radio_newsseen') || '[]').forEach(x => newsSeen.add(x)); } catch(e){}
+const newsFirst = newsSeen.size === 0; let newsBusy = false;
+async function newsPoll(){
+  if (newsBusy || document.hidden) return; newsBusy = true;
+  try {
+    const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 9000);
+    const r = await fetch(NEWS_URL, {signal: ac.signal, cache: 'no-store'}).finally(() => clearTimeout(tm));
+    if (!r.ok) return;
+    const items = ((await r.json()).items || []).filter(i => i && i.id && i.title);
+    if (!items.length) return;
+    let fresh = items.filter(i => !newsSeen.has(i.id));
+    if (newsFirst && !newsSeen.size) fresh = fresh.slice(0, NEWS_FIRST);
+    items.forEach(i => newsSeen.add(i.id));
+    try { localStorage.setItem('radio_newsseen', JSON.stringify([...newsSeen].slice(-200))); } catch(e){}
+    if (!fresh.length) return;
+    fresh.reverse().forEach((i, k) => window.NEWSM.push({n: '📰 실시간 소식', t: String(i.title).slice(0, 120) + (i.source ? ' - ' + i.source : ''), link: i.link, ts: Date.now() + k, news: 1}));
+    window.NEWSM = window.NEWSM.filter(m => Date.now() - m.ts < 3600000).slice(-20);
+    const top = items[0]; window.NEWSTOP = {title: String(top.title).slice(0, 100), link: top.link};
+    try { renderChat(); } catch(e){}
+    try { rxApply(); } catch(e){}
+  } catch(e){} finally { newsBusy = false; }
+}
+setTimeout(newsPoll, 4000);
+setInterval(newsPoll, NEWS_EVERY);
 
 // ===== 🧠 채팅 용어 스스로 배우기: 채팅에서 자주 나오는 말을 모아 자동완성으로 추천하고, 모르는 말은 무료 AI(중계 파일 jin_ai.php)에게 한 번만 물어 모두가 함께 씁니다 =====
 const AI_PROXY = 'https://round-moon-403jin-ai1.dyeo880.workers.dev/';   // Cloudflare Worker 중계 (뜻풀이)
