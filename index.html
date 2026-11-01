@@ -7462,29 +7462,27 @@ setInterval(() => { if (!document.hidden) rssLoad(); }, RSS_EVERY);
 
 // ===== 📰 이진주방산업 실시간 소식(구글 뉴스): 20초마다 확인해 새 기사만 채팅창·토론 박스에 넣습니다 (이 기기에만 표시, 서버에 저장하지 않음) =====
 const NEWS_URL = 'https://jin-news.dyeo880.workers.dev/';   // Cloudflare Worker 'jin-news' (이름을 다르게 만들었으면 여기 주소를 바꾸세요)
-const NEWS_EVERY = 20000, NEWS_FIRST = 2;   // 확인 간격(ms) · 처음 접속 때 보여줄 기사 수
+const NEWS_EVERY = 20000, NEWS_FIRST = 3;   // 확인 간격(ms) · 처음 접속 때 보여줄 기사 수
 window.NEWSM = []; window.NEWSTOP = null;
-let newsSeen = new Set(); try { JSON.parse(localStorage.getItem('radio_newsseen') || '[]').forEach(x => newsSeen.add(x)); } catch(e){}
-const newsFirst = newsSeen.size === 0; let newsBusy = false;
+let newsSeen = new Set(), newsBusy = false;   // 접속할 때마다 최신 글을 보여주고, 그 뒤로는 새 글만 추가 (이 기기에만 표시)
 async function newsPoll(){
   if (newsBusy || document.hidden) return; newsBusy = true;
   try {
     const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 9000);
     const r = await fetch(NEWS_URL, {signal: ac.signal, cache: 'no-store'}).finally(() => clearTimeout(tm));
-    if (!r.ok) return;
+    if (!r.ok){ console.warn('[뉴스] 서버 응답 오류', r.status); return; }
     const items = ((await r.json()).items || []).filter(i => i && i.id && i.title);
-    if (!items.length) return;
+    if (!items.length){ console.warn('[뉴스] 가져온 글이 없습니다 (Worker 주소 또는 RSS 확인)'); return; }
     let fresh = items.filter(i => !newsSeen.has(i.id));
-    if (newsFirst && !newsSeen.size) fresh = fresh.slice(0, NEWS_FIRST);
+    if (!newsSeen.size) fresh = fresh.slice(0, NEWS_FIRST);
     items.forEach(i => newsSeen.add(i.id));
-    try { localStorage.setItem('radio_newsseen', JSON.stringify([...newsSeen].slice(-200))); } catch(e){}
     if (!fresh.length) return;
     fresh.reverse().forEach((i, k) => window.NEWSM.push({n: ({blog: '📝 이진주방산업', yt: '▶ 유튜브', web: '🔎 웹 검색'}[i.src] || '📰 뉴스'), t: String(i.title).slice(0, 120) + (i.source ? ' - ' + i.source : ''), link: i.link, ts: Date.now() + k, news: 1}));
     window.NEWSM = window.NEWSM.filter(m => Date.now() - m.ts < 3600000).slice(-20);
     const top = items[0]; window.NEWSTOP = {title: String(top.title).slice(0, 100), link: top.link};
     try { renderChat(); } catch(e){}
     try { rxApply(); } catch(e){}
-  } catch(e){} finally { newsBusy = false; }
+  } catch(e){ console.warn('[뉴스] 불러오지 못함', e); } finally { newsBusy = false; }
 }
 setTimeout(newsPoll, 4000);
 setInterval(newsPoll, NEWS_EVERY);
