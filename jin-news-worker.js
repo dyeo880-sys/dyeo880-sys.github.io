@@ -1,9 +1,13 @@
 // Cloudflare Worker "jin-news": 이진주방산업 소식을 한곳에 모아 JSON으로 돌려줍니다 (120초 캐시)
-//  1) 이진주방산업 티스토리 블로그 새 글 (src: blog)  ← 핵심
+//  1) 이진주방산업 티스토리·네이버 블로그 새 글 (src: blog)  ← 핵심
 //  2) 구글 뉴스 "이진주방산업" 기사 (src: news)       ← 보조
 // 카드·API 키 필요 없음. Worker 이름은 jin-news 로 만드세요.
 
-const BLOG_RSS = ['https://010-4273-1972.tistory.com/rss'];   // 블로그가 더 있으면 여기에 주소를 추가
+const BLOGS = [   // 블로그가 더 있으면 여기에 [RSS 주소, 표시 이름]을 추가
+  ['https://010-4273-1972.tistory.com/rss', '이진주방산업 티스토리'],
+  ['https://rss.blog.naver.com/fb1234.xml', '이진주방산업 네이버 블로그'],
+  ['https://rss.blog.naver.com/2jineng.xml', '이진주방산업 네이버 블로그 2'],
+];
 const QUERY = '이진주방산업';
 const MUST = '이진주방';   // 구글 뉴스에서 제목·설명에 이 글자가 있는 기사만 통과 (비슷한 이름의 다른 회사 걸러내기)
 const CACHE_SECONDS = 120;
@@ -14,12 +18,12 @@ const decode = s => s.replace(/<!\[CDATA\[|\]\]>/g, '').replace(/&lt;/g, '<').re
 const pick = (b, tag) => { const m = b.match(new RegExp('<' + tag + '[^>]*>([\\s\\S]*?)</' + tag + '>')); return m ? decode(m[1]) : ''; };
 const getXml = async u => { const r = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0' } }); if (!r.ok) throw new Error(r.status); return r.text(); };
 
-async function readBlog(u) {
+async function readBlog([u, label]) {
   const xml = await getXml(u), out = [];
   for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
     const b = m[1], title = pick(b, 'title');
     if (!title) continue;
-    out.push({ id: pick(b, 'guid') || pick(b, 'link'), src: 'blog', title, link: pick(b, 'link'), source: '이진주방산업 블로그', date: pick(b, 'pubDate') });
+    out.push({ id: pick(b, 'guid') || pick(b, 'link'), src: 'blog', title, link: pick(b, 'link'), source: label, date: pick(b, 'pubDate') });
     if (out.length >= 10) break;
   }
   return out;
@@ -42,7 +46,7 @@ export default {
     const hit = await cache.match(key);
     if (hit) return new Response(hit.body, { headers: cors });
 
-    const jobs = [...BLOG_RSS.map(readBlog), readNews()];
+    const jobs = [...BLOGS.map(readBlog), readNews()];
     const res = await Promise.allSettled(jobs);
     let items = [], ok = 0;
     res.forEach(r => { if (r.status === 'fulfilled') { ok++; items = items.concat(r.value); } });
