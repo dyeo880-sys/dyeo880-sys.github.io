@@ -976,6 +976,7 @@ main .chat.sp.dopen{display:block;position:fixed;top:0;bottom:0;right:80px;width
   <p style="margin:0 0 8px"><b>음악 방</b>에서는 방장이 고른 노래를 모두가 같은 위치에서 <b>같이 듣고</b>, <b>라디오 채팅</b>과 <b>신청곡</b>, <b>온라인 노래방</b> 기능으로 함께 즐길 수 있습니다. 옛 가요·7080·트로트·재즈·클래식·올드팝까지, 마음에 드는 방송에는 별점을 남겨 보세요.</p>
   <p style="margin:0">방송국 이름(예: KBS, 클래식, jazz)이나 나라·장르로 검색해서 원하는 <b>라디오 방송</b>을 찾아보세요.</p>
   <p style="margin:8px 0 0"><b>지역별 맛집 자유게시판</b>에서는 서울·부산·경북 등 전국 동네 맛집을 이용자들이 직접 추천합니다. <a href="/matjip/" style="color:var(--amber)">전국 맛집 모음 보기</a> · 라디오를 들으며 <b>링크 게시판</b>에 유튜브·음원 링크를 올려 함께 들을 수도 있습니다.</p>
+  <p style="margin:8px 0 0"><b>집밥 레시피 게시판</b>에서는 재료와 만드는 순서를 글로 적은 요리 레시피를 누구나 올리고 찾아볼 수 있습니다. <a href="https://radiola-recipes.dyeo880.workers.dev/" style="color:var(--amber)">집밥 레시피 모음 보기</a></p>
   <h2 style="font-size:15px;margin:18px 0 0;color:var(--amber)">자주 묻는 질문</h2>
   <h3 style="font-size:13px;margin:12px 0 2px;color:var(--amber)">라디오는 어떻게 들을 수 있나요?</h3><p style="margin:0">Radiola 웹 라디오에서 방송국을 고르고 재생(▶) 버튼을 누르면 됩니다. 앱이나 프로그램을 설치할 필요 없이 스마트폰·PC 브라우저에서 바로 들을 수 있습니다.</p><h3 style="font-size:13px;margin:12px 0 2px;color:var(--amber)">Radiola 웹 라디오는 무료인가요?</h3><p style="margin:0">네, 무료입니다. 회원가입 없이 한국 라디오와 세계 라디오를 들을 수 있습니다.</p><h3 style="font-size:13px;margin:12px 0 2px;color:var(--amber)">한국 라디오와 해외 라디오를 모두 들을 수 있나요?</h3><p style="margin:0">국가 목록에서 대한민국을 비롯한 여러 나라를 골라 방송국을 찾을 수 있습니다. 방송국 이름이나 장르(클래식, 재즈, 뉴스 등)로 검색할 수도 있습니다. 일부 방송국은 지역 제한이나 주소 변경으로 재생되지 않을 수 있습니다.</p><h3 style="font-size:13px;margin:12px 0 2px;color:var(--amber)">음악 방은 무엇인가요?</h3><p style="margin:0">방장이 고른 노래를 방에 들어온 사람들이 같은 위치에서 함께 듣는 기능입니다. 채팅, 신청곡, 노래방 기능도 함께 쓸 수 있습니다.</p><h3 style="font-size:13px;margin:12px 0 2px;color:var(--amber)">스마트폰에서도 라디오를 들을 수 있나요?</h3><p style="margin:0">네. 크롬, 사파리 같은 모바일 브라우저에서 그대로 열리며, 홈 화면에 추가하면 앱처럼 쓸 수 있습니다.</p>
 </section>
@@ -9290,6 +9291,7 @@ setInterval(() => { if (!document.hidden) load(); }, 60000);
     const h = el.querySelector('.chathead');
     if (h){ const x = document.createElement('button'); x.type = 'button'; x.className = 'addhome drclose'; x.style.cssText = 'margin:0 6px 0 0;padding:4px 10px'; x.textContent = '✕ 닫기'; x.onclick = () => foldSet(id, true); h.insertBefore(x, h.firstChild); }
   });
+  { const rb = document.createElement('button'); rb.type = 'button'; rb.innerHTML = '<span>🍳</span>요리'; rb.title = '집밥 레시피 게시판 (새 창)'; rb.onclick = () => window.open('https://radiola-recipes.dyeo880.workers.dev/', '_blank', 'noopener'); rail.append(rb); }
   document.body.append(rail);
   addEventListener('keydown', e => { if (e.key === 'Escape' && cur && $('roomview').hidden) foldSet(cur, true); });
   if (INVITE) foldSet('musicroom', false);
@@ -10653,6 +10655,6 @@ body:not(.fxon) #fxsky,body:not(.fxon) #fxb,body:not(.fxon) #fxf{display:none}
   }
 })();
 </script>
-<footer style="text-align:center;padding:16px;font-size:13px;opacity:.8"><a href="/board/" style="color:#ffcf7a">🍚 지역별 맛집 글 모아보기</a> · <a href="/promo/" style="color:#ffcf7a">📣 지역별 동네 홍보 글 모아보기</a> · <a href="/delivery/" style="color:#ffcf7a">🛵 배달음식점 모아보기</a></footer>
+<footer style="text-align:center;padding:16px;font-size:13px;opacity:.8"><a href="/board/" style="color:#ffcf7a">🍚 지역별 맛집 글 모아보기</a> · <a href="/promo/" style="color:#ffcf7a">📣 지역별 동네 홍보 글 모아보기</a> · <a href="/delivery/" style="color:#ffcf7a">🛵 배달음식점 모아보기</a> · <a href="https://radiola-recipes.dyeo880.workers.dev/" style="color:#ffcf7a">🍳 집밥 레시피 게시판</a></footer>
 </body>
 </html>
