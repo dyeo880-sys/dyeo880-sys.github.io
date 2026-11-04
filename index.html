@@ -1408,7 +1408,7 @@ try {
     ms.setActionHandler('play', () => { rUserPause = false; rIntr = false; if (audio.src) audio.play().catch(() => {}); else if (view.length) playView(Math.max(curView, 0)); });
     ms.setActionHandler('pause', () => { rUserPause = true; audio.pause(); lastOff(1); });
     ms.setActionHandler('nexttrack', () => { if (view.length) playView((curView + 1) % view.length, !!liveRoom); });
-    ms.setActionHandler('previoustrack', () => { if (view.length) playView((curView - 1 + view.length, !!liveRoom) % view.length); });
+    ms.setActionHandler('previoustrack', () => { if (view.length) playView((curView - 1 + view.length) % view.length, !!liveRoom); });
   }
 } catch(e){}
 $('next').onclick = () => { if (view.length) playView((curView + 1) % view.length); };
@@ -5719,6 +5719,12 @@ function pinRow(id, d, hit, now, noOnly){
   b.title = mine ? '내가 열고 있는 방입니다' : (d.p ? '🔒 비밀번호 없이도 소리는 들을 수 있습니다 (방 입장에는 비밀번호 필요)' : '누르면 소리만 들립니다 (방에는 들어가지 않음)');
   b.onclick = () => {
     if (bc && bc.rid === id) return;                       // 내가 연 방
+    if (!bc && liveRoom && liveRoom.only && liveRoom.id !== id && !d.e){   // 소리만 듣는 중에 다른 방을 누르면 그 방으로 바로 입장
+      const f = mhFind(id, String(d.n)); if (f && f.nick){ try { applyMyName(f.nick); } catch(e){} }
+      try { stopListen(); } catch(e){}
+      listen(id, String(d.n), !!d.p, (f && f.pw) || '');
+      return;
+    }
     const cr = (liveRoom && liveRoom.id === id) ? liveRoom : null;   // 클릭하는 순간의 실제 상태 (그려질 때 상태 아님)
     if (cr && cr.only){                                      // 이미 소리만 듣는 중: 끊기지 않게 소리만 살려 줌 (정지하지 않음)
       try { if (liveAudio.srcObject && liveAudio.paused) liveAudio.play().catch(() => {}); } catch(e){}
@@ -10961,5 +10967,107 @@ setTimeout(go,12000+R()*6000);
 })();</script>
 <script>(function(){var m=document.createElement('div');m.id='neo-moon';m.setAttribute('aria-hidden','true');m.innerHTML='<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><g fill="#d6d1b4" opacity=".55"><circle cx="52" cy="58" r="10"/><circle cx="150" cy="52" r="6"/><circle cx="168" cy="108" r="8"/></g><g fill="#0c0a1a" stroke="#0c0a1a" stroke-linecap="round"><path d="M44 130h52l-5 32q-1 6-7 6H56q-6 0-7-6z" stroke="none"/><rect x="40" y="123" width="60" height="9" rx="4" stroke="none"/><ellipse cx="128" cy="122" rx="17" ry="30" transform="rotate(-10 128 122)" stroke="none"/><circle cx="134" cy="142" r="17" stroke="none"/><path d="M128 150L116 166h26l8-18z" stroke="none"/><ellipse cx="119" cy="168" rx="22" ry="6.5" stroke="none"/><circle cx="153" cy="138" r="9" stroke="none"/><ellipse cx="106" cy="84" rx="14" ry="12" transform="rotate(-15 106 84)" stroke="none"/><ellipse cx="93" cy="90" rx="8" ry="6" stroke="none"/><circle cx="88" cy="91" r="3" stroke="none"/><path d="M104 76C100 52 108 30 118 26c6 4 2 30-6 52z" stroke="none"/><path d="M112 74C114 50 126 32 134 32c4 6-4 26-14 46z" stroke="none"/><path d="M114 100Q96 104 76 98M116 108Q98 112 76 106" fill="none" stroke-width="7"/><circle cx="74" cy="98" r="5.5" stroke="none"/><circle cx="74" cy="106" r="5.5" stroke="none"/><g class="neo-pound"><rect x="65" y="34" width="10" height="78" rx="5" stroke="none"/><rect x="59" y="100" width="22" height="30" rx="7" stroke="none"/></g></g></svg>';document.body.appendChild(m);var o=document.getElementById('fxorb');function sync(){o=o||document.getElementById('fxorb');if(!o)return;document.body.classList.toggle('neo-night',o.classList.contains('moon'));var q=parseFloat(o.style.opacity);m.style.opacity=isNaN(q)?1:Math.max(.5,q);}if(o&&window.MutationObserver)new MutationObserver(sync).observe(o,{attributes:true,attributeFilter:['class','style']});sync();setInterval(sync,30000);})();</script>
 <script>(function(){var p=document.getElementById('play');if(!p||!window.MutationObserver)return;function s(){var t=p.textContent||'';document.body.classList.toggle('onair',t.indexOf('⏸')>-1||t.indexOf('⏹')>-1);}new MutationObserver(s).observe(p,{childList:true,characterData:true,subtree:true});s();})();</script>
+<style id="neo-time">
+/* ===== 시간대별 배경: 아침(05~11) · 낮(11~16) · 저녁(16~20) · 밤(기존 그대로) ===== */
+#neo-tod{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;display:none}
+html:is([data-tod=morning],[data-tod=day],[data-tod=evening]) #neo-tod{display:block}
+#neo-tod>*{position:absolute}
+.t-sky,.t-aur,.t-glow,.t-cloud,.t-fx{inset:0}
+.t-sun,.t-grid,.t-aur,.t-glow,.t-cloud{display:none}
+html:is([data-tod=morning],[data-tod=day],[data-tod=evening]) #fxsky{background:none!important}
+html:is([data-tod=morning],[data-tod=day],[data-tod=evening]) .set{background:var(--tod-glass);-webkit-backdrop-filter:blur(16px) saturate(1.25);backdrop-filter:blur(16px) saturate(1.25)}
+html[data-tod=morning]{--void:#1b1650;--tod-glass:rgba(22,16,66,.64)}
+html[data-tod=day]{--void:#2a82e0;--tod-glass:rgba(10,34,84,.66)}
+html[data-tod=evening]{--void:#3a1c5a;--tod-glass:rgba(38,14,54,.66)}
+html[data-tod=morning] #fxorb,html[data-tod=morning] #neo-moon{visibility:hidden!important}
+
+/* 아침: 오로라 하늘 + 떠오르는 포털 태양 + 네온 격자 지평선 */
+html[data-tod=morning] .t-sky{background:linear-gradient(180deg,#14123f 0%,#392a8c 26%,#8a5ad6 50%,#ff9ec6 74%,#ffe3a8 100%)}
+html[data-tod=morning] .t-aur{display:block;inset:-20% -10% 30%;mix-blend-mode:screen;will-change:transform;animation:todaur 26s ease-in-out infinite alternate;
+background:radial-gradient(ellipse 45% 38% at 28% 40%,rgba(90,245,210,.5),transparent 70%),radial-gradient(ellipse 40% 34% at 70% 30%,rgba(130,150,255,.55),transparent 70%),radial-gradient(ellipse 30% 26% at 50% 60%,rgba(255,150,220,.4),transparent 70%)}
+@keyframes todaur{from{transform:translate3d(-4%,0,0) skewX(-6deg)}to{transform:translate3d(5%,3%,0) skewX(7deg) scale(1.08)}}
+html[data-tod=morning] .t-sun{display:block;left:50%;top:60%;width:min(52vmin,420px);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;
+background:radial-gradient(circle,#fffdf0 0 16%,#ffe9a8 17% 30%,rgba(255,190,130,.45) 31% 52%,transparent 66%);box-shadow:0 0 120px 40px rgba(255,200,150,.45)}
+.t-sun::before,.t-sun::after{content:"";position:absolute;border-radius:50%}
+.t-sun::before{inset:-28%;border:2px dashed rgba(255,255,255,.6);animation:todring 38s linear infinite}
+.t-sun::after{inset:-60%;border:1.5px dotted rgba(150,255,225,.7);animation:todring 60s linear infinite reverse}
+@keyframes todring{from{transform:perspective(700px) rotateX(72deg) rotate(0)}to{transform:perspective(700px) rotateX(72deg) rotate(360deg)}}
+html[data-tod=morning] .t-grid{display:block;left:-60%;right:-60%;top:62%;bottom:-30%;transform-origin:50% 0;transform:perspective(420px) rotateX(64deg);
+box-shadow:0 -2px 40px 6px rgba(255,220,170,.55);animation:todgrid 3.2s linear infinite;
+background:repeating-linear-gradient(90deg,rgba(120,255,225,.6) 0 1.5px,transparent 1.5px 70px),repeating-linear-gradient(0deg,rgba(120,255,225,.6) 0 1.5px,transparent 1.5px 56px),linear-gradient(180deg,#ffd9a0 0,#c978d9 12%,#2c1d78 55%,#150f45 100%)}
+@keyframes todgrid{from{background-position:0 0,0 0,0 0}to{background-position:0 0,0 56px,0 0}}
+.tod-o{position:absolute;bottom:-90px;border-radius:50%;border:1px solid rgba(255,255,255,.45);will-change:transform;animation:todrise linear infinite;
+background:radial-gradient(circle at 32% 30%,rgba(255,255,255,.95),rgba(160,255,230,.28) 38%,rgba(185,140,255,.3) 70%,transparent 72%)}
+@keyframes todrise{0%{transform:translate3d(0,0,0);opacity:0}10%,90%{opacity:.9}100%{transform:translate3d(var(--dx),-120vh,0);opacity:0}}
+.neo-ufo{position:fixed;left:0;z-index:49;pointer-events:none;font-size:44px;line-height:1;filter:drop-shadow(0 0 12px rgba(150,255,225,.9))}
+.neo-ufo b{position:absolute;left:50%;top:78%;width:64px;height:110px;margin-left:-32px;clip-path:polygon(34% 0,66% 0,100% 100%,0 100%);background:linear-gradient(rgba(190,255,235,.7),transparent);animation:todbeam 1.1s ease-in-out infinite alternate}
+@keyframes todbeam{from{opacity:.25}to{opacity:.8}}
+
+/* 낮: 맑은 하늘 + 흘러가는 구름 + 햇살 */
+html[data-tod=day] .t-sky{background:linear-gradient(180deg,#1c74dc 0%,#46aef4 42%,#9ddcff 78%,#e6f8ff 100%)}
+html[data-tod=day] .t-glow{display:block;background:radial-gradient(circle at 82% 8%,rgba(255,250,200,.85),rgba(255,235,150,.3) 18%,transparent 40%)}
+/* 저녁: 노을 하늘 + 지평선 석양 빛 + 붉은 구름 */
+html[data-tod=evening] .t-sky{background:linear-gradient(180deg,#221856 0%,#64288a 28%,#d4506c 60%,#ff9a52 84%,#ffd37c 100%)}
+html[data-tod=evening] .t-glow{display:block;background:radial-gradient(ellipse 70% 38% at 50% 104%,rgba(255,214,120,.95),rgba(255,130,90,.45) 45%,transparent 72%)}
+html[data-tod=evening] .t-cloud{--c:255,150,130}
+html:is([data-tod=day],[data-tod=evening]) .t-cloud{display:block;--c:255,255,255;will-change:transform;animation:todcloud 90s ease-in-out infinite alternate;
+background:radial-gradient(ellipse 18vmax 5vmax at 20% 22%,rgba(var(--c),.85),transparent 70%),radial-gradient(ellipse 22vmax 6vmax at 62% 12%,rgba(var(--c),.8),transparent 70%),radial-gradient(ellipse 16vmax 4vmax at 85% 40%,rgba(var(--c),.7),transparent 70%),radial-gradient(ellipse 26vmax 6vmax at 40% 62%,rgba(var(--c),.5),transparent 70%)}
+html[data-tod=evening] .t-cloud{--c:255,150,130}
+@keyframes todcloud{from{transform:translateX(-6vw)}to{transform:translateX(6vw)}}
+@media(prefers-reduced-motion:reduce){#neo-tod *,#neo-tod *::before,#neo-tod *::after{animation:none!important}}
+</style>
+<script>(function(){
+var Q=new URLSearchParams(location.search),calm=matchMedia('(prefers-reduced-motion:reduce)').matches,cur='',R=Math.random;
+var L=document.createElement('div');L.id='neo-tod';L.setAttribute('aria-hidden','true');
+L.innerHTML='<i class="t-sky"></i><i class="t-aur"></i><i class="t-glow"></i><i class="t-sun"></i><i class="t-cloud"></i><i class="t-grid"></i><div class="t-fx"></div>';
+document.body.insertBefore(L,document.getElementById('fxsky')||document.body.firstChild);
+var fx=L.querySelector('.t-fx');
+/* 한국 시간 기준. 미리보기: 주소 뒤에 ?tod=morning|day|evening|night 또는 ?fxt=8 */
+function phase(){
+  var t=Q.get('tod');if(/^(morning|day|evening|night)$/.test(t))return t;
+  var n=new Date(Date.now()+new Date().getTimezoneOffset()*6e4+324e5),H=Q.has('fxt')?+Q.get('fxt'):n.getHours()+n.getMinutes()/60;
+  return H>=5&&H<11?'morning':H>=11&&H<16?'day':H>=16&&H<20?'evening':'night';
+}
+function set(){
+  var p=phase();if(p===cur)return;cur=p;document.documentElement.setAttribute('data-tod',p);fx.textContent='';
+  if(p==='morning'&&!calm)for(var i=0;i<14;i++){var o=document.createElement('i'),s=14+R()*56;o.className='tod-o';
+    o.style.cssText='left:'+R()*96+'%;width:'+s+'px;height:'+s+'px;--dx:'+(R()*120-60)+'px;animation-duration:'+(16+R()*22)+'s;animation-delay:-'+R()*30+'s';fx.appendChild(o);}
+}
+set();setInterval(set,6e4);
+/* 아침 전용 재미: 가끔 UFO가 광선을 비추며 지나감 */
+function ufo(){
+  if(cur!=='morning'||calm||document.hidden)return;
+  var e=document.createElement('div'),l=R()<.5;e.className='neo-ufo';e.innerHTML='🛸<b></b>';e.style.top=(8+R()*50)+'%';document.body.appendChild(e);
+  var a=e.animate([{transform:'translate('+(l?'-12vw':'108vw')+',0)'},{transform:'translate('+(l?'30vw':'70vw')+',-18px)',offset:.3},{transform:'translate('+(l?'60vw':'40vw')+',16px)',offset:.65},{transform:'translate('+(l?'108vw':'-12vw')+',0)'}],{duration:9000+R()*4000,easing:'ease-in-out'});
+  a.onfinish=function(){e.remove();};
+}
+(function loop(){ufo();setTimeout(loop,24000+R()*22000);})();
+setTimeout(ufo,4000);
+})();</script>
+<script>(function(){
+/* 차량 블루투스 버튼 보강: 다음/이전 + 앞/뒤 감기 버튼, 재생 상태 알림 */
+var ms=navigator.mediaSession,a=document.getElementById('audio');if(!ms||!a)return;
+function nx(d){return function(){try{if(typeof view!=='undefined'&&view.length){var i=curView<0?0:(curView+d+view.length)%view.length;playView(i,!!liveRoom);}}catch(e){}};}
+function reg(){
+  [['nexttrack',1],['previoustrack',-1],['seekforward',1],['seekbackward',-1]].forEach(function(x){try{ms.setActionHandler(x[0],nx(x[1]));}catch(e){}});
+  try{ms.setActionHandler('play',function(){rUserPause=false;rIntr=false;a.play().catch(function(){});});ms.setActionHandler('pause',function(){rUserPause=true;a.pause();});}catch(e){}
+}
+reg();
+['playing','pause','loadstart'].forEach(function(ev){a.addEventListener(ev,function(){reg();try{ms.playbackState=a.paused?'paused':'playing';}catch(e){}});});
+})();</script>
+<script>(function(){
+/* 화면이 꺼졌다 켜질 때, 꺼지기 직전에 재생 중이던 방 유튜브를 자동으로 이어서 재생 */
+var was=false;
+document.addEventListener('visibilitychange',function(){
+  try{
+    var y=(typeof MV!=='undefined'&&MV.k==='yt')?MV.yt:null;if(!y||!y.getPlayerState)return;
+    if(document.hidden){was=y.getPlayerState()===1;return;}
+    if(!was)return;
+    var n=0,t=setInterval(function(){
+      try{var st=y.getPlayerState();if(st===1||++n>8){clearInterval(t);return;}if(st===2||st===-1||st===5)y.playVideo();}catch(e){clearInterval(t);}
+    },700);
+  }catch(e){}
+});
+})();</script>
 </body>
 </html>
