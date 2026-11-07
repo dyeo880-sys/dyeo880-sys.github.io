@@ -599,6 +599,24 @@ main.set.hasChat #chatlog{height:calc(100vh - 360px);min-height:220px}
 @media (max-width:899px){#chatside{display:none}}
 #roomview #chatside{display:none}
 </style>
+<style id="chatdock">
+/* 💬 넓은 화면(1100px 이상): 채팅창을 좁게 줄여 메인 화면 오른쪽(또는 왼쪽)에 항상 붙여 둠 — 좌우는 「↔ 채팅 좌우」 버튼 */
+@media (min-width:1100px){
+body:has(main.set.hasChat:not(.chatL)){padding-right:430px}
+body:has(main.set.hasChat.chatL){padding-left:350px}
+main.set.hasChat{display:block!important;max-width:1480px}
+main.set.hasChat #chatsec.sp{display:flex!important;flex-direction:column;position:fixed!important;top:12px!important;bottom:12px!important;right:92px!important;left:auto!important;width:320px!important;max-width:320px;margin:0!important;z-index:40;overflow-y:auto;border-radius:16px!important;box-shadow:0 6px 24px #000a!important}
+main.set.hasChat.chatL #chatsec.sp{left:12px!important;right:auto!important}
+main.set.hasChat #chatsec.sp>*{flex:0 0 auto}
+main.set.hasChat #chatsec.sp #chatlog{flex:1 1 auto;height:auto!important;min-height:160px}
+main.set.hasChat #chatsec.sp .drclose,main.set.hasChat #chatsec.sp>.subtabs{display:none!important}
+body:has(main.set.hasChat) #siderail button[data-id="chatsec"]{display:none}
+}
+</style>
+<script>
+/* 🙂 가상 손님 얼굴: 로봇(🤖) 대신 이름마다 정해진 여성·남성·어르신·아이 등 사람 얼굴 (같은 이름은 항상 같은 얼굴) */
+window.botFace=function(n){var F=['👩','👨','🧑','👵','👴','👧','👦','🧔','👱‍♀️','👱‍♂️','👩‍🦰','👨‍🦱','🧓','👩‍🦳','🙋‍♀️','🙋‍♂️','👩‍🦱','👨‍🦰','🧑‍🦱','👩‍🦲'];n=String(n||'').replace(/^[^\w가-힣]+/,'');var h=0;for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))>>>0;return F[h%F.length];};
+</script>
 </head>
 <body>
 <main class="set">
@@ -1795,7 +1813,7 @@ async function ccAdminSet(on){
 function ccShow(c){
   const ov = $('chatcap'); if (!ov) return;
   const d = document.createElement('div'); d.className = 'cc';
-  const b = document.createElement('b'); b.textContent = (c.bot ? '🤖 ' : '') + (c.n || '');
+  const b = document.createElement('b'); b.textContent = (c.bot ? botFace(c.n) + ' ' : '') + (c.n || '');
   d.append(b, document.createTextNode(String(c.t).slice(0, 80)));
   const sc = $('mwscreen'); if (sc) sc.classList.add('capon');   // 소리만 있는 방도 글이 보이도록 화면을 키움
   while (ov.children.length > 5) ov.firstChild.remove();
@@ -1872,7 +1890,7 @@ function renderChat(forceBottom){
   try { rxAuto(all); } catch(e){}
   all.forEach(c => {
     const d = document.createElement('div'); d.className = 'm' + (isDmRoom ? ' wh' : '');
-    const b = document.createElement('b'); b.textContent = (c.bot ? '🤖 ' : '') + ((c.h || (inLive && !c.bot && c.k && ctlMgr(c.k))) ? '👑 ' : '') + c.n;
+    const b = document.createElement('b'); b.textContent = (c.bot ? botFace(c.n) + ' ' : '') + ((c.h || (inLive && !c.bot && c.k && ctlMgr(c.k))) ? '👑 ' : '') + c.n;
     if (c.news){ b.title = '구글 뉴스 자동 소식 (이 기기에만 표시)'; }
     else if (c.bot){ b.title = '가상 손님 (미리 정한 대사만 하는 봇)'; }
     else if (c.k === UID || c.n === $('nick').value.trim()){ b.style.cursor = 'pointer'; b.title = '이름 바꾸기'; b.onclick = renameMe; }
@@ -2823,7 +2841,7 @@ function botReact(name, kind){
       let tries = 0; do { k = botRand(BOT_REACT); } while (BOT.rhist.slice(-2).includes(k) && tries++ < 12);
     }
     BOT.rhist.push(k); BOT.rhist = BOT.rhist.slice(-6);
-    mrxFloat(k, '🤖' + name);
+    mrxFloat(k, botFace(name) + name);
   } catch(e){}
 }
 function botReactFor(text){   // 대사 내용에 어울리는 버튼
@@ -9535,7 +9553,7 @@ setInterval(() => { if (!document.hidden) load(); }, 60000);
   });
   const NM = {}; L.forEach(([id, ic, nm]) => NM[id] = [ic, nm]);
   const GH = ['chatsec', 'myhome'], GT = ['promosec', 'boardsec', 'dlvreg', 'dlvsec', 'rcpsec', 'lbsec', 'krinfo'];
-  const R = [['tvsec', '📺', 'TV'], ['musicroom', '🎵', '음악 방'], ['g_home', '🏠', '마이홈', GH], ['g_town', '📣', '동네홍보', GT], ['pbsec', '📻', '추억라디오']];
+  const R = [['tvsec', '📺', 'TV'], ['musicroom', '🎵', '음악 방'], ['chatsec', '💬', '채팅'], ['myhome', '🏠', '마이홈'], ['g_town', '📣', '동네홍보', GT], ['pbsec', '📻', '추억라디오']];
   const lastOf = {};
   R.forEach(([id, ic, nm, ids]) => {
     const b = document.createElement('button'); b.type = 'button'; b.innerHTML = '<span>' + ic + '</span>' + nm;
