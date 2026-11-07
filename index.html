@@ -2012,10 +2012,10 @@ async function sendChat(){
 $('chatsend').onclick = sendChat;
 $('chatin').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) sendChat(); });
 // ===== 🤖 가상 손님: 서버·DB·API 비용 없이 이 브라우저 안에서만 도는 대본형 대화 (전체 채팅방 + 음악 방 채팅) =====
-// 모든 가상 손님은 이름 앞에 🤖가 붙고, 미리 정한 대사만 합니다. 다른 접속자 화면에는 전달되지 않습니다.
+// 모든 가상 손님은 이름 앞에 🤖가 붙고, 미리 정한 대사만 합니다. 서버를 거치지 않고, 방 이름과 서버 시각을 시드로 각자 같은 대화를 계산해서 모든 접속자에게 똑같이 보입니다.
 // ⚙ 가상 손님 수 표기 설정: 최소·최대(명), 한 번에 오르내리는 폭, 갱신 간격(ms)
 const BOT_CFG = {min: 5600, max: 6400, step: 40, every: 3500};
-BOT = {msgs: [], on: true, q: [], next: Date.now() + 4000, rnext: Date.now() + 6000, who: [], last: '', recent: [], shuffleAt: 0, key: '', rhist: [], cnt: BOT_CFG.min + Math.floor(Math.random() * (BOT_CFG.max - BOT_CFG.min))};
+BOT = {msgs: [], on: true, q: [], next: Date.now() + 4000, rnext: Date.now() + 6000, who: [], last: '', recent: [], shuffleAt: 0, key: '', rhist: [], pend: [], done: {}, ep: {}, ld: {}, rd: {}, ext: 0, t0: Date.now(), wxDone: 0, sim: null, rslot: 0, cnt: BOT_CFG.min + Math.floor(Math.random() * (BOT_CFG.max - BOT_CFG.min))};
 // 🤖 가상 손님은 기본적으로 항상 켜짐. 끄기(저장된 '꺼짐')는 관리자 세션에서만 적용됨
 try { const adm0 = sessionStorage.getItem('board_admin') === '1' || sessionStorage.getItem('radio_admin') === '1'; BOT.on = !adm0 || localStorage.getItem('radio_bots') !== '0'; } catch(e){}
 const BOT_NAMES = ['노을지기','밤하늘별','가을바람','초코우유','라디오팬','새벽감성','LP판돌리기','소나기','달빛산책','커피한잔','구름빵','은행나무','길고양이','동네DJ','비오는날','햇살가득','막걸리한잔','쑥쑥이','레트로맨','별똥별','한강라면','보라돌이','추억소환','청춘열차','오래된라디오','낙엽엔딩','첫눈오면','곰돌이','바람개비','여름밤','휘파람','꿈꾸는나무','따뜻한차','야간비행','모닝커피','은하수','살구나무','종이비행기','기타치는곰','목요일밤','퇴근길','소풍가자','도토리','카세트테이프','감성충전','달콤한밤','라면끓이는','느린우체통','새벽두시','주말농부','배고픈사자','치킨은살아있다','퇴근하고싶다','졸린눈의토끼','라면먹다가','월요일싫어','치맥요정','방구석DJ','늦잠자는곰','붕어빵장인','고구마한입','엄마가부른다','옆집강아지','뒹굴뒹굴','밤샘청취자','귤까는중','야식요정','김치볶음밥','트로트의민족','노래방18번','아재개그왕','웃음폭탄','춤추는감자','오늘도출근','커피수혈중','눈팅전문가','잠깐들렀어요','마음은청춘','소주한잔','국밥러버','떡볶이사랑','달리는거북이','하품하는고래','수다쟁이','라디오중독','이불속라디오','호떡할머니','심야식당','복권당첨꿈','통닭천사','호빵맨','음악먹는하마','반달곰','동동구리무','옛날사람','뽀글머리','쉬는날','내일은맑음','김민준','이서연','박지훈','최수빈','정하늘','한지민','오세훈','윤서진','강민호','송지은','임현우','배수지','신동엽','장미란','서재원','류현주','남궁민','조은별','문성호','홍지수','백승현','안유진','권태준','노은지','양재석','고은숙','마음이고운','품격있는신사','우아한숙녀','온화한미소','단정한아침','맑은샘물','정원사','조용한서재','차분한목소리','따뜻한마음','고요한호수','푸른언덕','빛나는오후','향기로운차','다정한이웃','선한바람','고운하늘','넉넉한웃음','깊은가을','잔잔한강물','은빛물결','소담한하루','평온한저녁','단아한여인','점잖은신사','봄날의햇살','늘푸른소나무','해맑은아침','곱게늙은이','청아한새벽','어진마음','sunny_day','blue_sky77','happy_life','moonlight','dream_girl','nice_guy','cool_breeze','good_vibes','music_lover','sweet_home','little_star','coffee_time','hello_world','radio_star','smile_always','lucky_7','first_love','night_owl','spring_rain','한결같이','행복나무','mj0412','jh_1985','sy_kim','yoon0705','hana_88','가을하늘77','바다사랑','산들바람12','꽃보다할배','맑음이','희망이','소나무집','나그네','행인1','지나가던객','아침해','늦은밤','귀염둥이','믿음소망','솔바람','초록나무','하늘이','바람의노래'];
@@ -2473,7 +2473,7 @@ const BOT_SEASON = {
   winter: ['너무 추워요 ㅠㅠ 🥶','따뜻한 방바닥이 최고예요','군고구마 생각나는 계절 🍠','첫눈 언제 오려나요 ⛄','귤 까먹으면서 듣는 중 🍊','붕어빵 먹고 싶다']
 };
 function botTimeLines(){
-  const d = new Date(), h = d.getHours(), m = d.getMonth() + 1, day = d.getDate();
+  const d = botKst(), h = d.getHours(), m = d.getMonth() + 1, day = d.getDate();
   const part = h < 6 ? 'dawn' : h < 11 ? 'morning' : h < 14 ? 'noon' : h < 18 ? 'afternoon' : h < 22 ? 'evening' : 'night';
   const season = m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 9 && m <= 11 ? 'autumn' : 'winter';
   let L = BOT_TIME[part].concat(BOT_SEASON[season], BOT_TIME2[part], BOT_SEASON2[season], botWxLines(), botNewsLines());
@@ -2518,7 +2518,7 @@ const BOT_TR = [
 ];
 function botOk(text){
   if (typeof text !== 'string') return true;
-  const n = new Date(), h = n.getHours(), d = n.getDay(), m = n.getMonth();
+  const n = botKst(), h = n.getHours(), d = n.getDay(), m = n.getMonth();
   for (const r of BOT_TR) if (r[0].test(text) && !r[1](h, d, m)) return false;
   if (!botWxOk(text)) return false;
   return true;
@@ -2578,7 +2578,7 @@ function botLang(t){
 }
 // 🌏 외국 손님: 영어·일본어·중국어 등 각 나라 말로 대화 (모두 미리 정한 대사만 하는 🤖 봇)
 function botForeign(key){
-  const L = botRand(BOT_FXW), F = BOT_FX[L], nm = F.n.slice().sort(() => Math.random() - 0.5), live = botIsLive(key), gn = !!BOT_G[L];
+  const L = botRand(BOT_FXW), F = BOT_FX[L], nm = botShuf(F.n), live = botIsLive(key), gn = !!BOT_G[L];
   let gap;
   if (Math.random() < 0.5){
     const pk = () => (gn && Math.random() < 0.6) ? botGenScript(L, live) : botRand(F.s);
@@ -2651,11 +2651,11 @@ function botPersonaReply(text, key){
   return true;
 }
 function botBtn(){ const b = $('botbtn'); if (!b) return; let plain = false; try { plain = localStorage.getItem('radio_bots_plain') === '1'; } catch(e){}
-  b.textContent = plain ? (BOT.on ? '👥 접속 중 ' + BOT.cnt + '명' : '👥 조용히') : (BOT.on ? '🤖 가상 손님 ' + BOT.cnt + '명' : '🤖 가상 손님 꺼짐'); b.title = '가상 손님 수는 실제 접속자가 아닌 가상 숫자입니다. 미리 정해 둔 대사·반응만 하는 봇이며 이 기기에서만 보입니다 (누르면 켜고 끕니다)'; }
+  b.textContent = plain ? (BOT.on ? '👥 접속 중 ' + BOT.cnt + '명' : '👥 조용히') : (BOT.on ? '🤖 가상 손님 ' + BOT.cnt + '명' : '🤖 가상 손님 꺼짐'); b.title = '가상 손님 수는 실제 접속자가 아닌 가상 숫자입니다. 미리 정해 둔 대사·반응만 하는 봇입니다. 같은 방·같은 시각에는 모든 접속자에게 같은 내용이 보입니다 (누르면 켜고 끕니다)'; }
 // ===== ⏰🌦 시간대·날씨·계절별 분위기 (모두 미리 정한 대사만 쓰는 🤖 가상 손님) =====
 // 접속자 수·말하는 빈도: 새벽엔 한가하고 조용, 저녁엔 북적
 const BOT_LOAD = [0.62,0.46,0.34,0.27,0.25,0.30,0.45,0.70,0.86,0.92,0.94,0.98,1.0,0.95,0.92,0.94,0.98,1.03,1.10,1.17,1.20,1.15,1.0,0.80];
-function botLoad(){ const d = new Date(), h = d.getHours() + d.getMinutes() / 60, a = Math.floor(h), b = (a + 1) % 24, f = h - a; return BOT_LOAD[a] * (1 - f) + BOT_LOAD[b] * f; }
+function botLoad(){ const d = botKst(), h = d.getHours() + d.getMinutes() / 60, a = Math.floor(h), b = (a + 1) % 24, f = h - a; return BOT_LOAD[a] * (1 - f) + BOT_LOAD[b] * f; }
 const botBase = (BOT_CFG.min + BOT_CFG.max) / 2;
 const botAct = () => Math.max(0.25, Math.min(1.2, botLoad()));          // 활동량 (새벽 ≈0.25 · 저녁 ≈1.2)
 const botSlow = () => 1 / Math.max(0.35, Math.min(1.1, botLoad()));     // 말 사이 간격 배수 (새벽 ≈2.9배 · 저녁 ≈0.9배)
@@ -2673,7 +2673,7 @@ async function botWxLoad(){
     BOT.wx = {k, t: isFinite(t) ? t : 15};
   } catch(e){}
 }
-botWxLoad(); setInterval(botWxLoad, 20 * 60000);
+botWxLoad().then(() => { BOT.wxDone = 1; }, () => { BOT.wxDone = 1; }); setInterval(botWxLoad, 20 * 60000);
 function botWxOk(text){   // 지금 실제 날씨와 어긋나는 말은 안 함
   const w = BOT.wx; if (!w) return true;
   const rain = w.k === 'rain' || w.k === 'storm';
@@ -2713,7 +2713,7 @@ const BOT_WX = {
 };
 function botWxKeys(){
   const w = BOT.wx; if (!w) return [];
-  const h = new Date().getHours(), day = h >= 7 && h < 18, K = [];
+  const h = botKst().getHours(), day = h >= 7 && h < 18, K = [];
   if (w.k === 'clear') K.push(day ? 'clearDay' : 'clearNight'); else K.push(w.k);
   if (w.t >= 29) K.push('hot'); else if (w.t <= 3) K.push('cold'); else if (w.t <= 12) K.push('chilly');
   return K;
@@ -2792,7 +2792,7 @@ function botNewsScripts(){
   return botNewsTopics().map(x => [[0, x.n + ' 뉴스가 요즘 자주 보이네요'], [1, '저도 봤어요 ㅎㅎ'], [2, botRand(x.l)], [0, 'ㅋㅋ 그러게요']]);
 }
 function botExtraScripts(){
-  const d = new Date(); let S = (BOT_TIME_SC[botPart(d.getHours())] || []).concat(BOT_SEASON_SC[botSeasonOf(d.getMonth())] || []);
+  const d = botKst(); let S = (BOT_TIME_SC[botPart(d.getHours())] || []).concat(BOT_SEASON_SC[botSeasonOf(d.getMonth())] || []);
   botWxKeys().forEach(k => { S = S.concat(BOT_WX_SC[k] || [], BOT_WX_SC[k] || []); });   // 날씨 대화는 두 배로 자주
   S = S.concat(botNewsScripts());
   return S.filter(botScOk);
@@ -2803,7 +2803,7 @@ const BOT_ODD_NAMES = ['동문서답','눈치제로','시차적응중','방금�
 const BOT_ODD_SELF = ['앗 제가 잘못 봤나 봐요 ㅋㅋ','아 맞다 ㅋㅋㅋ 제가 헷갈렸어요','어... 그런가요? ㅎㅎ','헉 착각했어요 ㅋㅋ','ㅋㅋㅋ 아 부끄러워'];
 const BOT_ODD_AGREE = ['ㅋㅋㅋㅋ','ㅋㅋ 웃겨요','ㅎㅎ 귀여우셔','ㅋㅋ 인정','ㅋㅋㅋ 아 웃겨'];
 function botOddPool(){
-  const d = new Date(), h = d.getHours(), m = d.getMonth(), w = BOT.wx, C = [];
+  const d = botKst(), h = d.getHours(), m = d.getMonth(), w = BOT.wx, C = [];
   const rain = w && (w.k === 'rain' || w.k === 'storm');
   if (rain) C.push({l: ['밖에 날씨 진짜 좋네요 ☀️','오늘 날씨 너무 좋다 산책 나가야겠어요','하늘이 맑아서 기분이 좋아요 ㅎㅎ','밖에 해 쨍쨍해서 빨래 널었어요','이런 날씨엔 소풍 가야죠 🧺'], r: ['ㅋㅋ 지금 밖에 비 오는데요?','창문 한번 열어 보세요 비 와요 ☔','어디 사세요? 여긴 비 오는데 ㅋㅋ','응? 저는 비 맞고 왔는데요','ㅋㅋㅋ 날씨 앱 보고 오세요']});
   if (w && w.k === 'clear' && h >= 8 && h < 17) C.push({l: ['밖에 비 오네요 우산 챙기세요 ☔','비 와서 나가기 싫어요 ㅠㅠ','빗소리 좋다 ㅎㅎ'], r: ['응? 여기는 해 쨍쨍한데요 ㅋㅋ','거기만 비 오나 봐요 ㅎㅎ','창밖 보세요 하늘 맑은데요?']});
@@ -2829,8 +2829,8 @@ function botOddTry(key){
 }
 BOT.cnt = Math.round(botCntRange()[2]);
 function botShuffle(){
-  const pool = BOT_NAMES.slice().sort(() => Math.random() - 0.5);
-  BOT.who = pool.slice(0, Math.max(4, Math.round((8 + Math.floor(Math.random() * 7)) * Math.min(1, botLoad() + 0.25)))).concat(BOT_PQ.map(p => p.nm).sort(() => Math.random() - 0.5).slice(0, Math.max(1, Math.round((2 + Math.floor(Math.random() * 3)) * Math.min(1, botLoad() + 0.25))))); BOT.shuffleAt = Date.now() + 180000 + Math.random() * 120000; botBtn();
+  const pool = botShuf(BOT_NAMES);
+  BOT.who = pool.slice(0, Math.max(4, Math.round((8 + Math.floor(Math.random() * 7)) * Math.min(1, botLoad() + 0.25)))).concat(botShuf(BOT_PQ.map(p => p.nm)).slice(0, Math.max(1, Math.round((2 + Math.floor(Math.random() * 3)) * Math.min(1, botLoad() + 0.25))))); BOT.shuffleAt = Date.now() + 180000 + Math.random() * 120000; botBtn();
 }
 // 🔘 방의 「토론 반응」 버튼(💯100점·👏박수·🔥불꽃·😂웃김·🤔의문·😮놀람)을 누른 것처럼 화면에 이모지가 떠오름 (집계 숫자·찬반 투표에는 넣지 않음)
 const BOT_REACT = ['100','100','100','clap','clap','clap','fire','fire','lol','lol','wow','hmm'];
@@ -2853,6 +2853,12 @@ function botReactFor(text){   // 대사 내용에 어울리는 버튼
   return '';
 }
 function botSay(name, text, key, odd){
+  if (BOT.sim){   // 🔁 동기화 계산 중: 화면에 올리지 않고 (시각, 이름, 대사)만 기록
+    if (typeof text === 'string') text = text.replace(/\{n\}/g, '손님');
+    if (!odd && !botOk(text)) return;
+    BOT.last = name; BOT.recent.push(text); BOT.recent = BOT.recent.slice(-24);
+    BOT.sim.push({ts: Date.now(), n: name, t: text}); return;
+  }
   if (botLocked(key || roomPath())){ BOT.q = []; return; }
   if (typeof text === 'string' && text.indexOf('{n}') >= 0){ let _nm = ''; try { _nm = $('nick').value.trim().slice(0, 12); } catch(e){} text = text.replace(/\{n\}/g, _nm || '손님'); }   // 🔒 잠긴 방에서는 말하지 않음
   if (!odd && !botOk(text)) return;
@@ -2867,24 +2873,66 @@ function botWho(not){
   base.forEach(n => { for (let i = botTrait(n); i > 0; i--) w.push(n); });   // 수다쟁이 3칸 · 보통 2칸 · 과묵 1칸
   return botRand(w);
 }
-function botTick(){
-  const key = roomPath();
-  if (!BOT.on || document.hidden || !botKeyOk(key)) return;
+// ===== 🔁 가상 손님 동기화 =====
+// 방 이름 + 서버 시각(60초 구간)을 시드로 써서 모든 접속자가 똑같은 대화를 계산합니다. (서버·DB 사용 없음)
+// 같은 시각·같은 방이면 누구 화면에서도 같은 이름·같은 대사·같은 순서로 나옵니다.
+function botKst(){ return new Date(Date.now() + 9 * 3600000 + new Date().getTimezoneOffset() * 60000); }   // 기기 시간대와 무관하게 한국 시각 기준
+function botShuf(a){ a = a.slice(); for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }   // 브라우저마다 결과가 다른 sort(random) 대신 사용
+function botSeed(s){ s = String(s); let h = 1779033703 ^ s.length; for (let i = 0; i < s.length; i++){ h = Math.imul(h ^ s.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } h = Math.imul(h ^ (h >>> 16), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return (h ^ (h >>> 16)) >>> 0; }
+function botMk(seed){ let a = seed >>> 0; return function(){ a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const botNow = () => { try { return nowS(); } catch(e){ return Date.now(); } };
+const BOT_EP = 60000, BOT_BLK = 240000;
+const botReady = () => (BOT.ext >= 2 && BOT.wxDone) || Date.now() - BOT.t0 > 8000;   // 확장팩·날씨를 다 받은 뒤에 시작 (대사 목록이 같아야 하므로)
+// 시드 난수 · 가상 시계로 fn을 돌려서 가상 손님의 말(시각·이름·대사)을 모아 돌려줌
+function botSim(seed, t0, fn){
+  const sv = {R: Math.random, N: Date.now, T: window.setTimeout, q: BOT.q, nx: BOT.next, rc: BOT.recent, ls: BOT.last, wh: BOT.who, od: BOT.oddAt, nt: BOT.nt, sa: BOT.shuffleAt, sm: BOT.sim};
+  let vt = t0, seq = 0; const timers = [], out = [], rg = botMk(botSeed(seed));
+  Math.random = rg; Date.now = () => vt;
+  window.setTimeout = (f, ms) => { timers.push({at: vt + Math.max(0, +ms || 0), s: seq++, f}); return 0; };
+  BOT.sim = out; BOT.q = []; BOT.recent = []; BOT.last = ''; BOT.oddAt = 0; BOT.nt = {ts: 4e15, v: []}; BOT.shuffleAt = Infinity; BOT.next = t0;
+  const run = to => {
+    for (;;){
+      let bi = -1;
+      for (let i = 0; i < timers.length; i++){ const x = timers[i]; if (x.at <= to && (bi < 0 || x.at < timers[bi].at || (x.at === timers[bi].at && x.s < timers[bi].s))) bi = i; }
+      if (bi < 0) break;
+      const tm = timers.splice(bi, 1)[0]; vt = Math.max(vt, tm.at); try { tm.f(); } catch(e){}
+    }
+    vt = Math.max(vt, to);
+  };
+  try { fn(run, rg); }
+  finally { Math.random = sv.R; Date.now = sv.N; window.setTimeout = sv.T; BOT.q = sv.q; BOT.next = sv.nx; BOT.recent = sv.rc; BOT.last = sv.ls; BOT.who = sv.wh; BOT.oddAt = sv.od; BOT.nt = sv.nt; BOT.shuffleAt = sv.sa; BOT.sim = sv.sm; }
+  return out;
+}
+// 4분마다 바뀌는 방별 손님 명단
+function botRoster(key, blk){
+  const ck = 'w|' + key + '|' + blk; if (BOT.ep[ck]) return BOT.ep[ck];
+  let w = []; botSim('who|' + key + '|' + blk, blk * BOT_BLK, () => { botShuffle(); w = BOT.who.slice(); });
+  BOT.ep[ck] = w; return w;
+}
+// 60초 구간 하나의 대화 (구간이 끝나기 25초 전까지만 새 이야기를 시작하고, 진행 중인 대본은 끝까지 마침)
+function botAmb(key, ep){
+  const ck = 'a|' + key + '|' + ep; if (BOT.ep[ck]) return BOT.ep[ck];
+  const t0 = ep * BOT_EP, t1 = t0 + BOT_EP, who = botRoster(key, Math.floor(t0 / BOT_BLK));
+  const ev = botSim('amb|' + key + '|' + ep, t0, (run, rg) => {
+    BOT.who = who.slice(); BOT.next = t0 + 3000 + Math.floor(rg() * 7000);
+    for (let t = t0; t < t1 + 25000; t += 1000){ run(t); botTickSim(key, t1); }
+  });
+  BOT.ep[ck] = ev; return ev;
+}
+function botTickSim(key, end){
   const now = Date.now();
-  if (BOT.key !== key){ BOT.key = key; BOT.q = []; BOT.next = now + 3000; return; }
   if (now < BOT.next) return;
-  if (!BOT.who.length || now > BOT.shuffleAt) botShuffle();
   const live = botIsLive(key); let gap;
   if (BOT.q.length){
     const s = BOT.q.shift(); botSay(s[0], s[1], key, s[2]);
-    // 다음 말까지: 타자 치는 시간(글자 수 비례) + 들쭉날쭉한 여유, 가끔은 한참 뜸 들임
     const nx = BOT.q[0], len = nx ? nx[1].length : 8;
     gap = 1800 + len * 170 + Math.random() * 4200;
     if (Math.random() < 0.15) gap += 4000 + Math.random() * 7000;
-    if (Math.random() < 0.12) gap = 1200 + Math.random() * 1000;   // 가끔은 바로 받아침
+    if (Math.random() < 0.12) gap = 1200 + Math.random() * 1000;
   }
-  else if (botOddTry(key)){ gap = 7000 + Math.random() * 6000; }   // 🙃 엉뚱한 손님
-  else if (Math.random() < 0.05){ gap = botForeign(key); }   // 외국 손님은 전체의 약 5% (1000명 중 50명 정도)
+  else if (now >= end){ BOT.next = now + 2000; return; }
+  else if (botOddTry(key)){ gap = 7000 + Math.random() * 6000; }
+  else if (Math.random() < 0.05){ gap = botForeign(key); }
   else if (Math.random() < 0.3 * Math.min(1, botAct() + 0.1)){ gap = botPersona(key); }
   else if (Math.random() < 0.5){
     const src = (live && Math.random() < 0.6) ? BOT_LIVE_SCRIPTS : BOT_SCRIPTS;
@@ -2901,55 +2949,97 @@ function botTick(){
     let t = pl(), tries = 0; while ((BOT.recent.includes(t) || !botOk(t)) && tries++ < 20) t = pl();
     if (!botOk(t)) t = botPickOk(BOT_LINES);
     botSay(botWho(), t, key);
-    gap = 7000 + Math.random() * 20000;                      // 말 사이 간격이 일정하지 않게
-    if (Math.random() < 0.2) gap += 15000 + Math.random() * 25000;   // 가끔은 한동안 조용
-    if (Math.random() < 0.15) gap = 3000 + Math.random() * 3000;      // 가끔은 연달아
+    gap = 7000 + Math.random() * 20000;
+    if (Math.random() < 0.2) gap += 15000 + Math.random() * 25000;
+    if (Math.random() < 0.15) gap = 3000 + Math.random() * 3000;
   }
-  // 👥 가끔은 거의 동시에 다른 손님이 한마디 얹음 (0.4~1.6초 차이)
   if (!BOT.q.length && Math.random() < 0.18 * Math.min(1, botAct())){
     const w = botWho(), e = botRand(BOT_ECHO);
-    setTimeout(() => { if (BOT.on && roomPath() === key) botSay(w, e, key); }, 400 + Math.random() * 1200);
-    if (Math.random() < 0.3){ const w2 = botWho([w]), e2 = botRand(BOT_ECHO); setTimeout(() => { if (BOT.on && roomPath() === key) botSay(w2, e2, key); }, 900 + Math.random() * 1600); }
+    setTimeout(() => { botSay(w, e, key); }, 400 + Math.random() * 1200);
+    if (Math.random() < 0.3){ const w2 = botWho([w]), e2 = botRand(BOT_ECHO); setTimeout(() => { botSay(w2, e2, key); }, 900 + Math.random() * 1600); }
   }
-  const busy = chat.some(c => c && !c.bot && c.k !== UID && now - (c.ts || 0) < 45000);   // 진짜 사람들이 이야기 중이면 조용히
-  BOT.next = Date.now() + (busy ? gap * 1.8 : gap) * botSlow();
+  BOT.next = Date.now() + gap * botSlow();
+}
+function botQueue(key, id, v, nw){ if (BOT.done[id] || v.ts < nw - 58000) return; BOT.pend.push({id, r: key, ts: v.ts, n: v.n, t: v.t}); }
+// 진짜 사람이 쓴 글에는 (보낸 사람·글·시각으로 정해지는) 같은 답글을 모든 접속자 화면에 띄움
+function botScanChat(key, nw){
+  let all = []; try { all = chat.concat(pending); } catch(e){ return; }
+  const hum = all.filter(c => c && !c.bot && !c.news && !c.cp && typeof c.t === 'string' && typeof c.ts === 'number').sort((a, b) => a.ts - b.ts);
+  for (let i = 0; i < hum.length; i++){
+    const c = hum[i]; if (nw - c.ts > 55000) continue;
+    const id = 'r|' + key + '|' + (c.k || c.u || c.n) + '|' + c.ts;
+    if (BOT.rd[id]) continue; BOT.rd[id] = c.ts;
+    if (i > 0 && c.ts - hum[i - 1].ts < 6000) continue;   // 사람들이 연달아 말하면 봇은 끼어들지 않음
+    const base = Math.min(Math.max(c.ts, nw - 30000), nw), who = botRoster(key, Math.floor(base / BOT_BLK)), un = String(c.n || '').trim().slice(0, 12) || '손님';
+    const ev = botSim('rep|' + id, base, run => { BOT.who = who.slice(); botReplyCore(c.t, un, key); run(base + 50000); });
+    ev.forEach((v, j) => botQueue(key, id + '#' + j, v, nw));
+  }
+  Object.keys(BOT.rd).forEach(k => { if (nw - BOT.rd[k] > 180000) delete BOT.rd[k]; });
+}
+function botFlush(key, nw){
+  const off = nw - Date.now(); let add = 0;
+  BOT.pend = BOT.pend.filter(v => {
+    if (v.ts > nw) return true;
+    if (!BOT.done[v.id] && v.ts > nw - 58000){ BOT.done[v.id] = v.ts; BOT.msgs.push({n: v.n, t: v.t, ts: v.ts - off, k: 'bot', bot: 1, r: v.r}); add++; }
+    return false;
+  });
+  Object.keys(BOT.done).forEach(k => { if (nw - BOT.done[k] > 130000) delete BOT.done[k]; });
+  if (add){
+    const lt = Date.now(); BOT.msgs.sort((a, b) => a.ts - b.ts);
+    BOT.msgs = BOT.msgs.filter(m => lt - m.ts < 600000).slice(-60);
+    if (roomPath() === key) renderChat();
+  }
+}
+function botTick(){
+  const key = roomPath();
+  if (!BOT.on || document.hidden || !botKeyOk(key) || !botReady()) return;
+  const nw = botNow(), ep = Math.floor(nw / BOT_EP);
+  [ep - 1, ep].forEach(e => {
+    const ck = key + '|' + e; if (BOT.ld[ck]) return; BOT.ld[ck] = 1;
+    botAmb(key, e).forEach((v, i) => botQueue(key, 'a|' + ck + '#' + i, v, nw));
+  });
+  Object.keys(BOT.ld).forEach(k => { if (+k.split('|').pop() < ep - 3) delete BOT.ld[k]; });
+  Object.keys(BOT.ep).forEach(k => { const p = k.split('|'); if (p[0] === 'a' && +p[p.length - 1] < ep - 3) delete BOT.ep[k]; });
+  botScanChat(key, nw);
+  botFlush(key, nw);
 }
 // 🔘 방 안에 있는 동안 2~8초마다 반응 버튼을 섞어서 누름 (가끔 여럿이 몰려서 박수·100점)
 function botReactTick(){
-  if (!BOT.on || document.hidden || botLocked(roomPath())) return;
-  const now = Date.now(); if (now < BOT.rnext) return;
-  if (!BOT.who.length) botShuffle();
-  if (Math.random() < 0.22 * Math.min(1, botAct())){   // 몰려서 누르기
-    const k = botRand(['100', 'clap', 'fire', 'wow']), n = 2 + Math.floor(Math.random() * 3), used = [];
-    for (let i = 0; i < n; i++){ const w = botWho(used); used.push(w); setTimeout(() => botReact(w, k), i * 450 + Math.random() * 250); }
-    BOT.rnext = now + (7000 + Math.random() * 8000) * botSlow();
-  } else {
-    const n = 1 + Math.floor(Math.random() * 2), used = [];
-    for (let i = 0; i < n; i++){ const w = botWho(used); used.push(w); setTimeout(() => botReact(w), i * 700 + Math.random() * 300); }
-    BOT.rnext = now + (2500 + Math.random() * 5500) * botSlow();
+  const key = roomPath();
+  if (!BOT.on || document.hidden || !botKeyOk(key) || !botReady()) return;
+  const nw = botNow(), slot = Math.floor(nw / 1000); if (slot === BOT.rslot) return; BOT.rslot = slot;
+  const rg = botMk(botSeed('rx|' + key + '|' + slot));   // 1초마다 같은 주사위 → 모든 접속자 화면에 같은 반응이 같이 뜸
+  if (rg() > 1 / (5.5 * botSlow())) return;
+  const who = botRoster(key, Math.floor(nw / BOT_BLK)).filter(n => !botIsPQ(n)); if (!who.length) return;
+  const burst = rg() < 0.22 * Math.min(1, botAct()), n = burst ? 2 + Math.floor(rg() * 3) : 1 + Math.floor(rg() * 2), kb = ['100', 'clap', 'fire', 'wow'][Math.floor(rg() * 4)], used = [];
+  for (let i = 0; i < n; i++){
+    let w = who[Math.floor(rg() * who.length)], tr = 0; while (used.includes(w) && tr++ < 8) w = who[Math.floor(rg() * who.length)]; used.push(w);
+    const kk = burst ? kb : BOT_REACT[Math.floor(rg() * BOT_REACT.length)], dl = i * (burst ? 450 : 700) + Math.floor(rg() * 300);
+    setTimeout(() => botReact(w, kk), dl);
   }
 }
 // 👋 진짜 사람이 방에 들어오면 가상 손님이 인사 (1~2명, 몇 초 뒤에)
 const BOT_WELCOME = ['방가 방가~ 👋','방가방가 ㅎㅎ','방가방가~~','방가워요~ 어서오세요','오 방가방가 😄','어서오세요~','어서 오세요 😊','어서옵셔~ ㅎㅎ','어서오세요! 편하게 들으세요 🎶','안녕하세요! 반가워요 ㅎㅎ','안녕하세요~','안녕하세요~ 처음 뵙네요','안녕하세요 👋','하이~ 👋','헬로~ ㅎㅎ','오 새 손님이다 안녕하세요~','오 누가 오셨네요 ㅎㅎ','오~ 손님 오셨다','반갑습니다~ 같이 들어요 🎶','반가워요~ 😊','반가워요 반가워요 ㅎㅎ','환영합니다 ㅎㅎ','환영해요~ 🎉','잘 오셨어요~','잘 오셨어요 같이 들어요','어서와요~ 노래 좋죠?','들어오셨네요 ㅎㅎ 안녕하세요','왔다 왔다~ 어서오세요','{n}님 어서오세요~','{n}님 방가방가 🙌','{n}님 안녕하세요~','{n}님 반가워요 ㅎㅎ','{n}님 오셨네요! 어서오세요','{n}님 하이~ 👋','{n}님 환영해요!','{n}님 잘 오셨어요 😊','오 {n}님 오셨네요 ㅎㅎ','오 {n}님 방가방가~','{n}님 안녕하세요! 노래 같이 들어요 🎶','환영해요 {n}님!','{n}님 어서와요~','{n}님 오랜만이에요? ㅎㅎ 반가워요','좋은 아침이에요 {n}님~','좋은 아침이에요~ 어서오세요','아침부터 오셨네요 ㅎㅎ 어서오세요','오전에 오셨네요 반가워요','점심 드셨어요? 어서 오세요 ㅎㅎ','점심시간에 오셨네요 어서오세요~','오후에 오셨네요 어서오세요 😊','저녁 시간에 오셨네요, 반가워요 😊','저녁 드셨어요? 어서오세요~','저녁 먹고 오셨어요? 반가워요 ㅎㅎ','늦은 밤에 오셨네요 어서오세요~','밤에 오셨네요 ㅎㅎ 편하게 들으세요','새벽에 오셨네요 어서오세요~ 안 주무세요?','오늘 밤 같이 들어요 🌙'];
 const BOT_WELCOME2 = ['저도 방가워요 ㅎㅎ','어서오세요~ 👋','환영해요!','반가워요~','방가 방가 ㅎㅎ','같이 들어요 🎶','안녕하세요~ ㅎㅎ','오 어서오세요~','저도 인사드려요 👋','환영합니다 ㅎㅎ','하이~','방가방가~','어서와요 ㅎㅎ','반갑습니다~','저도 반가워요 😊','오 새 얼굴이다 ㅎㅎ','잘 오셨어요~','같이 즐겨요 🎵'];
 let botWelAt = 0;
-window.botWelcome = name => {
-  const key = roomPath(); if (!BOT.on || !botKeyOk(key) || Date.now() - botWelAt < 6000) return;
-  botWelAt = Date.now(); if (!BOT.who.length) botShuffle();
-  const nm = String(name || '').slice(0, 12), fill = t => t.replace(/\{n\}/g, nm || '새');
-  const pool = BOT_WELCOME.filter(botOk).map(fill), w = botWho();
-  const d = 1500 + Math.random() * 3500;
-  BOT.q = []; BOT.next = Math.max(BOT.next, Date.now() + d + 6000);
-  setTimeout(() => { if (BOT.on) botSay(w, botRand(pool), key); }, d);
-  if (Math.random() < 0.5){ const w2 = botWho([w]); setTimeout(() => { if (BOT.on) botSay(w2, botRand(BOT_WELCOME2), key); }, d + 2500 + Math.random() * 4000); }
+window.botWelcome = (name, jk) => {
+  const key = roomPath(); if (!BOT.on || !botKeyOk(key) || !botReady()) return;
+  const nw = botNow(); if (nw - botWelAt < 6000) return; botWelAt = nw;
+  const nm = String(name || '').slice(0, 12), id = 'w|' + key + '|' + (jk || nm);
+  const ev = botSim('wel|' + id, nw, run => {
+    BOT.who = botRoster(key, Math.floor(nw / BOT_BLK)).slice();
+    const fill = t => t.replace(/\{n\}/g, nm || '새'), pool = BOT_WELCOME.filter(botOk).map(fill), w = botWho();
+    const d = 1500 + Math.random() * 3500;
+    setTimeout(() => botSay(w, botRand(pool), key), d);
+    if (Math.random() < 0.5){ const w2 = botWho([w]); setTimeout(() => botSay(w2, botRand(BOT_WELCOME2), key), d + 2500 + Math.random() * 4000); }
+    run(nw + 20000);
+  });
+  ev.forEach((v, i) => botQueue(key, id + '#' + i, v, nw));
 };
-(function(){ try { const sc = document.createElement('script'); sc.src = 'bot_more.js?v=1'; sc.async = true; sc.onerror = function(){}; document.head.appendChild(sc); } catch(e){} })();   // 🤖 확장팩(대사·대본·이름) 자동 로드
-(function(){ try { const sc = document.createElement('script'); sc.src = 'bot_love.js?v=1'; sc.async = true; sc.onerror = function(){}; document.head.appendChild(sc); } catch(e){} })();   // 💕 사랑·연애·이별 확장팩 자동 로드
+(function(){ try { const sc = document.createElement('script'); sc.src = 'bot_more.js?v=1'; sc.async = true; sc.onload = sc.onerror = function(){ BOT.ext++; }; document.head.appendChild(sc); } catch(e){} })();   // 🤖 확장팩(대사·대본·이름) 자동 로드
+(function(){ try { const sc = document.createElement('script'); sc.src = 'bot_love.js?v=1'; sc.async = true; sc.onload = sc.onerror = function(){ BOT.ext++; }; document.head.appendChild(sc); } catch(e){} })();   // 💕 사랑·연애·이별 확장팩 자동 로드
 const BOT_CALLED = ['네~ 저 불렀어요? ㅎㅎ','네 {u}님 말씀하세요~','저요? 네 여기 있어요 😊','부르셨어요? 반가워요 ㅎㅎ','네네 듣고 있어요~','{u}님 저 불렀죠? 네~','네 {u}님 ㅎㅎ 왜요?','저 여기 있어요~ 무슨 일이세요?','오 저를 불러주셨네요 반가워요 😊','네~ 말씀하세요 {u}님','헤헤 저 불렀어요?','불러주셔서 고마워요 ㅎㅎ','네 {u}님 안녕하세요~','저 여기요 여기~ 🙋'];
-window.botUserSaid = text => {
-  const key = roomPath();
-  if (!BOT.on || !botKeyOk(key)) return;
-  if (!BOT.who.length) botShuffle();
+function botReplyCore(text, uname, key){   // 사람 글에 가상 손님이 답함 (시뮬레이션 안에서만 호출됨)
   const fl = botLang(text); if (fl && BOT_FX[fl]){ botForeignReply(text, fl, key); return; }
   if (botPersonaReply(text, key)) return;
   // 📣 손님 이름을 부르면(예: "은행나무님") 그 손님이 직접 대답함
@@ -2966,22 +3056,23 @@ window.botUserSaid = text => {
   BOT.q = []; BOT.next = Date.now() + 10000;
   const okPool = pool.filter(botOk);
   const w = _tg || botWho(); let line = (pool === BOT_FALLBACK && Math.random() < 0.6) ? botFill(botRand(BOT_G.ko.r), BOT_G.ko, {}) : botRand(okPool.length ? okPool : pool);
-  try { const _u0 = $('nick').value.trim().slice(0, 12) || '손님'; line = line.replace(/\{u\}/g, _u0); } catch(e){ line = line.replace(/\{u\}/g, '손님'); }
-  if (!_tg && !BOT_SERIOUS.has(pool) && Math.random() < 0.3){ try { const _u = $('nick').value.trim().slice(0, 12); if (_u && line.indexOf(_u) < 0) line = _u + '님, ' + line; } catch(e){} }   // 🔔 가끔 닉네임을 불러줌
+  line = line.replace(/\{u\}/g, uname);
+  if (!_tg && !BOT_SERIOUS.has(pool) && Math.random() < 0.3){ if (uname !== '손님' && line.indexOf(uname) < 0) line = uname + '님, ' + line; }   // 🔔 가끔 닉네임을 불러줌
   // 읽고 → 생각하고 → 타자 치는 시간: 사용자 글 길이·답 길이에 비례, 가끔은 한참 뒤에 답함
   let d1 = 2500 + Math.min(text.length, 40) * 60 + line.length * 120 + Math.random() * 5500;
   if (Math.random() < 0.2) d1 += 5000 + Math.random() * 8000;
   BOT.next = Date.now() + d1 + 6000;   // 답하기 전에 다른 손님이 끼어들지 않게
-  setTimeout(() => { if (BOT.on) botSay(w, line, key); }, d1);
+  setTimeout(() => { botSay(w, line, key); }, d1);
   if (!_tg && pool !== BOT_RULES[0][1] && !BOT_SERIOUS.has(pool) && Math.random() < 0.3){   // 다른 손님이 거의 동시에 같이 답함
     const wb = botWho([w]), lb = botRand(pool.length > 1 ? pool.filter(x => x !== line) : BOT_ECHO);
-    setTimeout(() => { if (BOT.on) botSay(wb, lb, key); }, d1 + 300 + Math.random() * 1500);
+    setTimeout(() => { botSay(wb, lb, key); }, d1 + 300 + Math.random() * 1500);
   }
   if (pool !== BOT_FALLBACK && pool !== BOT_RULES[0][1] && !BOT_SERIOUS.has(pool) && Math.random() < 0.4){
     const w2 = botWho([w]), l2 = botRand(['ㅋㅋ 저도요','맞아요~ 😊','ㅎㅎ 동감이에요','저도 그렇게 생각해요','오 공감이에요']);
-    setTimeout(() => { if (BOT.on) botSay(w2, l2, key); }, d1 + 3500 + Math.random() * 9000);
+    setTimeout(() => { botSay(w2, l2, key); }, d1 + 3500 + Math.random() * 9000);
   }
-};
+}
+window.botUserSaid = () => {};   // 사람 글은 botScanChat이 모든 접속자 기준으로 처리 (보낸 사람 화면에서만 따로 답하지 않음)
 (() => { const b = $('botbtn'); if (!b) return; botShuffle();
   b.addEventListener('dblclick', e => { e.preventDefault(); try { localStorage.setItem('radio_bots_plain', localStorage.getItem('radio_bots_plain') === '1' ? '0' : '1'); } catch(_){} botBtn(); });
   b.onclick = () => { BOT.on = !BOT.on; try { localStorage.setItem('radio_bots', BOT.on ? '1' : '0'); } catch(e){} BOT.q = []; botBtn(); renderChat(); };
@@ -2997,12 +3088,11 @@ function botAdmShow(){
 }
 botAdmShow(); setInterval(function(){ if (!document.hidden) botAdmShow(); }, 3000);
 // 가상 손님 수 표기: 5600~6400명(약 6000명) 사이에서 조금씩 오르내림 (실제 접속자 수와는 무관한 가상 숫자)
-function botCountTick(){   // 시간대별 접속자 수: 새벽엔 적고(약 1500명) 저녁에 가장 많음(약 7200명)
+function botCountTick(){   // 시간대별 접속자 수: 새벽엔 적고 저녁에 가장 많음. 서버 시각으로 계산해서 모든 접속자에게 같은 숫자가 보임
   if (!BOT.on) return;
-  const [lo, hi, t] = botCntRange(), step = Math.max(8, BOT_CFG.step * Math.min(1, botLoad() + 0.2));
-  let d = Math.round((Math.random() - 0.5) * step) + Math.round((t - BOT.cnt) * 0.04);
-  if (Math.random() < 0.08) d += Math.round((Math.random() - 0.5) * step * 3);   // 가끔 크게 출렁
-  BOT.cnt = Math.max(lo, Math.min(hi, BOT.cnt + d)); botBtn();
+  const [lo, hi, t] = botCntRange(), nw = botNow(), rg = botMk(botSeed('cnt|' + Math.floor(nw / BOT_CFG.every)));
+  const w = (hi - lo) * 0.5 * (0.6 * Math.sin(nw / 53000) + 0.4 * Math.sin(nw / 17000 + 1.3)), j = (rg() - 0.5) * Math.max(8, BOT_CFG.step * Math.min(1, botLoad() + 0.2));
+  BOT.cnt = Math.max(lo, Math.min(hi, Math.round(t + w + j))); botBtn();
 }
 setInterval(botCountTick, BOT_CFG.every);
 // ===== 🎉 메인 화면 반응 버튼 (💯100점·👏박수·🔥불꽃·😂웃김·🤔의문·😮놀람) =====
@@ -3602,7 +3692,7 @@ function memNotify(rid, list){
   const old = memSeen.ks, miss = memSeen.miss;
   Object.keys(cur).forEach(k => {
     delete miss[k];
-    if (k !== myId && !(k in old)){ memToast('🟢 ' + cur[k] + '님이 입장했습니다'); try { window.botWelcome && window.botWelcome(cur[k]); } catch(_){} }
+    if (k !== myId && !(k in old)){ memToast('🟢 ' + cur[k] + '님이 입장했습니다'); try { window.botWelcome && window.botWelcome(cur[k], k); } catch(_){} }
     old[k] = cur[k];
   });
   Object.keys(old).forEach(k => {
