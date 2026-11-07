@@ -1894,7 +1894,7 @@ function renderChat(forceBottom){
     const d = document.createElement('div'); d.className = 'm' + (isDmRoom ? ' wh' : '');
     const b = document.createElement('b'); b.textContent = (c.bot ? botFace(c.n) + ' ' : '') + ((c.h || (inLive && !c.bot && c.k && ctlMgr(c.k))) ? '👑 ' : '') + c.n;
     if (c.news){ b.title = '구글 뉴스 자동 소식 (이 기기에만 표시)'; }
-    else if (c.ai){ b.title = '이진AI — 대화를 기억하며 배우는 AI 봇 (이 기기에만 표시)'; }
+    else if (c.ai){ b.title = '🤖 AI 봇 (사람이 아님) — 이 기기에만 표시'; }
     else if (c.bot){ b.title = '가상 손님 (미리 정한 대사만 하는 봇)'; }
     else if (c.k === UID || c.n === $('nick').value.trim()){ b.style.cursor = 'pointer'; b.title = '이름 바꾸기'; b.onclick = renameMe; }
     else { b.className = 'nm'; b.title = '눌러서 귓속말 · 차단'; b.onclick = ev => nameMenu(ev, c); }
@@ -1982,7 +1982,7 @@ async function sendChat(){
   const inp = $('chatin'), text = inp.value.trim();
   if (!text) return;
   if (/^\/(뜻|뜻풀이)\s+\S/.test(text)){ inp.value = ''; try { window.explainWord(text.replace(/^\/\S+\s+/, '')); } catch(e){} return; }
-  if (/^\/(기억|기억지우기)\s*$/.test(text)){ inp.value = ''; try { window.aiCmd(text); } catch(e){} return; }
+  if (/^\/(기억|기억지우기|ai토론끝|ai토론(\s+.+)?)\s*$/i.test(text)){ inp.value = ''; try { window.aiCmd(text); } catch(e){} return; }
   { const bm = badMsg([text, $('nick').value]); if (bm){ alert(bm); return; } }
   if (liveRoom && !isHost() && $('room').value === 'b:' + liveRoom.id && ctlMuted(UID)){ $('chatnote').textContent = '🔇 방장이 입막음해서 이 방에서는 채팅할 수 없습니다.'; return; }
   if (!$('nick').value.trim()) $('nick').value = fakeNick();
@@ -8013,7 +8013,7 @@ async function aiPost(body, ms){
 }
 function aiQuota(){ const today = new Date().toISOString().slice(0, 10), c = jl(AIC_K, '{}'); if (c.d !== today){ c.d = today; c.n = 0; } return c; }
 const aiQSave = c => { try { localStorage.setItem(AIC_K, JSON.stringify(c)); } catch(e){} };
-function aiShow(text){ const m = {n: AI_NAME, t: String(text), ts: Date.now(), ai: 1, r: roomPath()}; window.AIMSG.push(m); window.AIMSG = window.AIMSG.slice(-20); try { renderChat(true); } catch(e){} return m; }
+function aiShow(text, name){ const m = {n: name || AI_NAME, t: String(text), ts: Date.now(), ai: 1, r: roomPath()}; window.AIMSG.push(m); window.AIMSG = window.AIMSG.slice(-20); try { renderChat(true); } catch(e){} return m; }
 function aiGone(m){ window.AIMSG = window.AIMSG.filter(x => x !== m); }
 function aiRecent(){
   const me = $('nick').value.trim();
@@ -8030,7 +8030,7 @@ async function aiSummarize(){
 }
 const AI_TRIG = /^\s*(?:\/ai|@ai|@이진ai)\s*[:,]?\s+(\S[\s\S]*)$/i;
 window.aiOnSend = async function(text){
-  const m = AI_TRIG.exec(text); if (!m) return;
+  const m = AI_TRIG.exec(text); if (!m){ try { aiTalkHuman(text); } catch(e){} return; }
   if ($('room').value.indexOf('u:') === 0){ aiShow('귓속말 방에서는 AI를 부를 수 없어요. (개인 대화는 AI에게 보내지 않아요)'); return; }
   const q = m[1].trim().slice(0, 300);
   let qt = aiQuota();
@@ -8051,6 +8051,8 @@ window.aiOnSend = async function(text){
   }
 };
 window.aiCmd = function(text){
+  if (/^\/ai토론끝/i.test(text)){ aiTalkStop(AIT.on ? 'AI 대화를 껐어요.' : 'AI 대화가 켜져 있지 않아요.'); return; }
+  if (/^\/ai토론/i.test(text)){ aiTalkStart(text.replace(/^\/ai토론\s*/i, '')); return; }
   if (/기억지우기/.test(text)){ AIM = {log: []}; aiMemSave(); aiShow('📒 기억을 모두 지웠어요.'); return; }
   aiShow('📒 대화 ' + (AIM.n || 0) + '번 · ' + (AIM.sum ? '방 기억: ' + AIM.sum : '아직 정리된 기억이 없어요. (8번 대화하면 정리해요)'));
 };
@@ -8067,6 +8069,52 @@ function aiHarvest(){
   });
 }
 { const _rc = renderChat; renderChat = function(){ const r = _rc.apply(this, arguments); try { aiHarvest(); } catch(e){} return r; }; }
+// ===== 🤖💬 AI끼리 대화: 이름 앞에 항상 🤖가 붙은 AI 3명이 서로 이야기합니다 (사람이 아닌 AI이며, 이 기기에서만 보임) =====
+// 시작: "/ai토론 주제" (주제 생략 가능) · 끝내기: "/ai토론끝" · 사람이 채팅하면 AI들이 그 말에 먼저 반응합니다.
+// 호출량 보호: 한 번 시작하면 최대 10마디, 하루 40마디, 화면이 숨겨져 있으면 쉬고, 방을 옮기면 멈춥니다.
+const AIT_MAX = 10, AIT_DAILY = 40, AIT_K = 'jin_ai_talk';
+const AIT = {on: false, t: 0, n: 0, topic: '', hist: [], room: '', i: 0};
+const AI_CAST = [
+  {n: '🤖 이진AI', p: '차분하고 다정한 안내자. 질문을 잘 던진다.'},
+  {n: '🤖 별빛AI', p: '감성적이고 음악과 밤하늘 이야기를 좋아한다.'},
+  {n: '🤖 새벽AI', p: '유머러스하고 가볍게 농담을 던진다.'}];
+const AI_TOPICS = ['좋아하는 노래 장르', '비 오는 날 듣기 좋은 노래', '라디오의 매력', '추억의 노래', '주말에 하면 좋은 일', '밤에 듣기 좋은 음악'];
+const aiShort = n => n.replace(/^🤖\s*/, '');
+function aiTalkQuota(){ const today = new Date().toISOString().slice(0, 10), c = jl(AIT_K, '{}'); if (c.d !== today){ c.d = today; c.n = 0; } return c; }
+function aiTalkStop(msg){ AIT.on = false; clearTimeout(AIT.t); if (msg) aiShow(msg); }
+function aiTalkStart(topic){
+  if ($('room').value.indexOf('u:') === 0){ aiShow('귓속말 방에서는 AI 대화를 켤 수 없어요.'); return; }
+  clearTimeout(AIT.t);
+  Object.assign(AIT, {on: true, n: 0, hist: [], i: 0, room: roomPath(), topic: (topic || '').trim().slice(0, 40) || AI_TOPICS[Math.floor(Math.random() * AI_TOPICS.length)]});
+  aiShow('🤖 AI들의 대화가 시작돼요 — 주제: ' + AIT.topic + ' (AI끼리 나누는 대화예요. 끼어들면 반응해요 · 끝내기: /ai토론끝)');
+  AIT.t = setTimeout(aiTalkTick, 1500);
+}
+async function aiTalkTick(){
+  if (!AIT.on) return;
+  if (roomPath() !== AIT.room || $('room').value.indexOf('u:') === 0){ aiTalkStop('방을 옮겨서 AI 대화를 멈췄어요.'); return; }
+  if (document.hidden){ AIT.t = setTimeout(aiTalkTick, 5000); return; }
+  if (AIT.n >= AIT_MAX){ aiTalkStop('AI들의 대화를 마쳤어요. 다시 보려면 /ai토론 을 입력하세요.'); return; }
+  let qt = aiTalkQuota();
+  if (qt.n >= AIT_DAILY){ aiTalkStop('오늘 AI 대화 한도(' + AIT_DAILY + '마디)를 다 썼어요. 내일 다시 해 보세요.'); return; }
+  qt.n++; try { localStorage.setItem(AIT_K, JSON.stringify(qt)); } catch(e){}
+  const who = AI_CAST[AIT.i % AI_CAST.length]; AIT.i++;
+  try {
+    const j = await aiPost({mode: 'talk', who: aiShort(who.n), persona: who.p, others: AI_CAST.filter(x => x !== who).map(x => aiShort(x.n)), topic: AIT.topic, hist: AIT.hist.slice(-8), recent: aiRecent(), memory: AIM.sum || '', slang: aiSlangCtx(AIT.topic)});
+    if (!AIT.on) return;
+    const a = String((j && j.a) || '').trim().slice(0, 200);
+    if (!a) throw new Error(j && j.error ? j.error : '빈 답');
+    aiShow(a, who.n); AIT.hist.push(aiShort(who.n) + ': ' + a); AIT.n++;
+  } catch(e){
+    qt = aiTalkQuota(); qt.n = Math.max(0, qt.n - 1); try { localStorage.setItem(AIT_K, JSON.stringify(qt)); } catch(_){}
+    aiTalkStop('AI 대화를 멈췄어요. (' + (e && e.name === 'AbortError' ? '시간 초과' : (e && e.message) || '오류') + ')'); return;
+  }
+  if (AIT.on) AIT.t = setTimeout(aiTalkTick, 18000 + Math.random() * 10000);
+}
+function aiTalkHuman(text){   // 사람이 채팅하면 AI 대화에 끼워 주고, 곧바로 다음 AI가 반응
+  if (!AIT.on || !text || /https?:\/\//i.test(text)) return;
+  AIT.hist.push($('nick').value.trim().slice(0, 12) + '(사람): ' + String(text).slice(0, 100));
+  clearTimeout(AIT.t); AIT.t = setTimeout(aiTalkTick, 2500);
+}
 setTimeout(vSharedLoad, 4000);
 setInterval(() => { if (!document.hidden) vSharedLoad(); }, 600000);
 
