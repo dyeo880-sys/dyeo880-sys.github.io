@@ -10586,7 +10586,7 @@ body:not(.fxon) .scale::after,body:not(.fxon) .neo-pound{animation:none!importan
   var saved = null; try { saved = localStorage.getItem('fxon'); } catch (e) {}
   var low = (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);   // 휴대폰·저사양은 처음에 꺼진 상태(✨ 로 켤 수 있음)
   var calm = matchMedia('(prefers-reduced-motion:reduce)').matches;
-  var on = saved === null ? !(low || calm) : saved === '1';   // 저사양·모션 줄이기 기기는 처음에 꺼진 상태
+  var on = false;   // 배경 효과(하늘·낙엽·비·눈)는 항상 꺼짐   // 저사양·모션 줄이기 기기는 처음에 꺼진 상태
 
   var sky = document.createElement('div'); sky.id = 'fxsky';
   sky.innerHTML = '<div id="fxorb"></div><div id="fxwx"></div>';
@@ -11140,6 +11140,7 @@ document.body.insertBefore(L,document.getElementById('fxsky')||document.body.fir
 var fx=L.querySelector('.t-fx');
 /* 한국 시간 기준. 미리보기: 주소 뒤에 ?tod=morning|day|evening|night 또는 ?fxt=8 */
 function phase(){
+  return 'night';   // 화려한 시간대 배경은 쓰지 않음 (항상 기본 어두운 배경)
   var t=Q.get('tod');if(/^(morning|day|evening|night)$/.test(t))return t;
   var n=new Date(Date.now()+new Date().getTimezoneOffset()*6e4+324e5),H=Q.has('fxt')?+Q.get('fxt'):n.getHours()+n.getMinutes()/60;
   return H>=5&&H<11?'morning':H>=11&&H<16?'day':H>=16&&H<20?'evening':'night';
@@ -11185,5 +11186,12 @@ document.addEventListener('visibilitychange',function(){
   }catch(e){}
 });
 })();</script>
+<style id="plain-bg">
+/* 화려한 배경 제거: 움직이는 하늘·구름·별·달·낙엽·비·눈·UFO 모두 끔, 배경은 단색 */
+#fxsky,#fxb,#fxf,#fxbtn,#neo-tod,#neo-sky,#neo-moon,.neo-ufo,#mrxfloat_bg{display:none!important}
+html body::before,html body::after{display:none!important}
+html,html body{background:#1d120b!important}
+.scale::after,.neo-pound{animation:none!important}
+</style>
 </body>
 </html>
