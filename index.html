@@ -587,16 +587,16 @@ main .chat.sp.dopen{display:block;position:fixed;top:0;bottom:0;right:80px;width
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
 <style>
 /* 💬 메인 화면(넓은 화면): 채팅창을 본문 오른쪽(또는 왼쪽)에 붙여 스크롤해도 따라오게 함 */
-@media (min-width:1100px){
-main.set:has(>#chatsec){max-width:1480px;display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,28vw,420px);column-gap:16px;row-gap:0;align-items:start}
-main.set:has(>#chatsec)>*{grid-column:1}
-main.set:has(>#chatsec)>#chatsec{grid-column:2;grid-row:1 / span 80;margin-top:0;position:sticky;top:10px;min-width:0;max-height:calc(100vh - 24px);overflow-y:auto}
-main.set.chatL:has(>#chatsec){grid-template-columns:clamp(320px,28vw,420px) minmax(0,1fr)}
-main.set.chatL:has(>#chatsec)>*{grid-column:2}
-main.set.chatL:has(>#chatsec)>#chatsec{grid-column:1}
-main.set:has(>#chatsec) #chatlog{height:calc(100vh - 360px);min-height:220px}
+@media (min-width:900px){
+main.set.hasChat{max-width:1480px;display:grid;grid-template-columns:minmax(0,1fr) clamp(300px,30vw,400px);column-gap:16px;row-gap:0;align-items:start}
+main.set.hasChat>*{grid-column:1}
+main.set.hasChat>#chatsec{grid-column:2;grid-row:1 / span 80;margin-top:0;position:sticky;top:10px;min-width:0;max-height:calc(100vh - 24px);overflow-y:auto}
+main.set.hasChat.chatL{grid-template-columns:clamp(300px,30vw,400px) minmax(0,1fr)}
+main.set.hasChat.chatL>*{grid-column:2}
+main.set.hasChat.chatL>#chatsec{grid-column:1}
+main.set.hasChat #chatlog{height:calc(100vh - 360px);min-height:220px}
 }
-@media (max-width:1099px){#chatside{display:none}}
+@media (max-width:899px){#chatside{display:none}}
 #roomview #chatside{display:none}
 </style>
 </head>
@@ -3128,6 +3128,7 @@ function mrxPress(k, txt){
   hb.onclick = () => { h = !h; try { localStorage.setItem('radio_mrx_hide', h ? '1' : '0'); } catch(e){} apply(h); };
 })();
 (() => { const mn = document.querySelector('main.set'), cb = $('chatside'); if (!mn || !cb) return;
+  const upd = () => { const c = $('chatsec'); mn.classList.toggle('hasChat', !!c && c.parentNode === mn); }; upd(); try { new MutationObserver(upd).observe(mn, {childList: true}); } catch(e){ mn.classList.add('hasChat'); }
   let L = false; try { L = localStorage.getItem('radio_chat_side') === 'L'; } catch(e){}
   const ap = () => { mn.classList.toggle('chatL', L); cb.textContent = L ? '↔ 채팅 오른쪽으로' : '↔ 채팅 왼쪽으로'; };
   ap(); cb.onclick = () => { L = !L; try { localStorage.setItem('radio_chat_side', L ? 'L' : 'R'); } catch(e){} ap(); };
