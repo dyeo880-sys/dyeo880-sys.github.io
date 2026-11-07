@@ -11193,5 +11193,331 @@ html body::before,html body::after{display:none!important}
 html,html body{background:#1d120b!important}
 .scale::after,.neo-pound{animation:none!important}
 </style>
+<style id="sitemgr-css">
+#spOv{position:fixed;inset:0;z-index:100050;background:#000a;display:flex;align-items:center;justify-content:center;padding:14px}
+#spOv[hidden]{display:none}
+#spBox{background:var(--panel,#241610);color:var(--ink,#f0e2c4);border:2px solid var(--brass,#b99a5b);border-radius:12px;max-width:520px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 12px 40px #000c}
+#spBox .sph{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #b99a5b55}
+#spBox .sph b{color:var(--amber,#ffcf7a);font-size:17px}
+#spBox .sph small{opacity:.6}
+#spBox .spb{padding:12px 14px;line-height:1.7;font-size:15px;white-space:pre-wrap;word-break:break-word}
+#spBox .spb img,#spBox .spm img{max-width:100%;border-radius:8px;display:block;margin:0 auto 10px}
+#spBox .spm{padding:12px 14px 0}
+#spBox .spm .vf{position:relative;aspect-ratio:16/9;width:100%;margin-bottom:10px}
+#spBox .spm .vf iframe,#spBox .spm video{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:8px;background:#000}
+#spBox .spm video{position:static;aspect-ratio:16/9;margin-bottom:10px}
+#spBox .spf{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;padding:10px 14px 14px}
+#spBox .spf button,#spBox .spf a{margin:0;padding:8px 14px;font-size:14px;text-decoration:none;display:inline-block}
+#siteNotice{margin:0 0 12px}
+#siteNotice .sn{background:#b99a5b33;border:1px solid var(--brass,#b99a5b);border-radius:8px;padding:8px 12px;margin-bottom:6px;color:var(--amber,#ffcf7a);font-size:14px;line-height:1.5;text-align:center;white-space:pre-wrap;word-break:break-word}
+#siteNotice .sn a{color:inherit;text-decoration:underline}
+#sitemgr input[type=text],#sitemgr input[type=url],#sitemgr input[type=date],#sitemgr textarea,#sitemgr select{background:#1a0f08;color:var(--ink,#f0e2c4);border:1px solid #b99a5b88;border-radius:6px;padding:7px 10px;min-width:0;font:inherit}
+#sitemgr textarea{width:100%;min-height:90px;resize:vertical}
+#sitemgr .r{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0}
+#sitemgr .r>label{font-size:13px;opacity:.85}
+#sitemgr .grow{flex:1 1 200px}
+#sitemgr .tabs button.on{background:var(--brass,#b99a5b);color:#2a1a08}
+#sitemgr .row{display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px dashed #b99a5b44;font-size:13px}
+#sitemgr .row .tt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#sitemgr .thumbs{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0}
+#sitemgr .thumbs span{position:relative}
+#sitemgr .thumbs img{height:64px;border-radius:6px;border:1px solid #b99a5b88;display:block}
+#sitemgr .thumbs b{position:absolute;top:-6px;right:-6px;background:#c33;color:#fff;border-radius:50%;width:18px;height:18px;text-align:center;line-height:18px;font-size:12px;cursor:pointer}
+#sitemgr .sm{font-size:12px;color:var(--amber,#ffcf7a);min-height:16px;margin-top:4px}
+#sitemgr .ab{margin:0!important;padding:5px 10px!important;font-size:13px!important}
+</style>
+<script id="sitemgr-js">(function(){
+'use strict';
+var $ = function(id){ return document.getElementById(id); };
+var FB = function(){ try { return String(FIREBASE_URL || '').replace(/\/+$/, ''); } catch(e){ return ''; } };
+function fb(p, m, b){
+  if (!FB()) return Promise.reject(new Error('no db'));
+  return fetch(FB() + '/chat/' + p + '.json', {method: m || 'GET', body: b === undefined ? undefined : JSON.stringify(b), cache: 'no-store'})
+    .then(function(r){ if (!r.ok) throw new Error('http ' + r.status); return r.json(); });
+}
+var isAdm = function(){ try { return sessionStorage.getItem('radio_admin') === '1' || sessionStorage.getItem('board_admin') === '1'; } catch(e){ return false; } };
+var uid = function(){ return 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1000).toString(36); };
+var okImg = function(u){ return /^data:image\/(jpeg|png|webp|gif);base64,/i.test(u) || /^https:\/\//i.test(u); };
+var okUrl = function(u){ return /^https?:\/\//i.test(u || ''); };
+var E = function(tag, css, txt){ var n = document.createElement(tag); if (css) n.style.cssText = css; if (txt != null) n.textContent = txt; return n; };
+
+/* ---------- 동영상 링크 → 임베드 ---------- */
+function vidNode(u){
+  u = String(u || '').trim(); if (!okUrl(u)) return null;
+  var m = u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/))([\w-]{11})/);
+  var src = '';
+  if (m) src = 'https://www.youtube.com/embed/' + m[1] + '?rel=0&playsinline=1';
+  else { var v = u.match(/vimeo\.com\/(?:video\/)?(\d+)/); if (v) src = 'https://player.vimeo.com/video/' + v[1]; }
+  if (src){
+    var w = E('div'); w.className = 'vf';
+    var f = document.createElement('iframe'); f.src = src; f.allow = 'accelerometer; encrypted-media; picture-in-picture; fullscreen'; f.allowFullscreen = true; f.referrerPolicy = 'strict-origin-when-cross-origin'; f.title = '동영상';
+    w.append(f); return w;
+  }
+  if (/\.(mp4|webm|ogg)(\?|#|$)/i.test(u)){ var vd = document.createElement('video'); vd.src = u; vd.controls = true; vd.playsInline = true; vd.style.cssText = 'width:100%;border-radius:8px;background:#000'; return vd; }
+  return null;
+}
+
+/* ---------- 설정 불러오기 ---------- */
+var CFG = {pop: [], notice: [], text: {}};
+var TARGETS = [
+  {k:'title',  label:'메인 제목 (RADIOLA 웹 라디오)', sel:'.dial h1', mode:'html'},
+  {k:'search', label:'검색창 안내 글자',               sel:'#q',        mode:'ph'},
+  {k:'foot',   label:'하단 업체 이름 링크',            sel:'.foot a',   mode:'html'},
+  {k:'legal',  label:'하단 저작권·신고 안내문',        sel:'#legal',    mode:'html'},
+  {k:'note',   label:'하단 ※ 안내문(스트림 설명)',      sel:'main > p.note', mode:'html'},
+  {k:'about',  label:'Radiola 소개·FAQ 영역 (숨김만)', sel:'#about',    mode:'hide'}
+];
+var ORIG = {};
+function load(){
+  return Promise.all([fb('sitepop').catch(function(){ return null; }), fb('sitenotice').catch(function(){ return null; }), fb('sitetext').catch(function(){ return null; })]).then(function(a){
+    CFG.pop = Object.keys(a[0] || {}).map(function(k){ var v = a[0][k] || {}; v.id = k; return v; }).filter(function(v){ return v && typeof v === 'object'; }).sort(function(x, y){ return (x.ts || 0) - (y.ts || 0); });
+    CFG.notice = Object.keys(a[1] || {}).map(function(k){ var v = a[1][k] || {}; v.id = k; return v; }).filter(function(v){ return v && typeof v === 'object'; }).sort(function(x, y){ return (x.ts || 0) - (y.ts || 0); });
+    CFG.text = a[2] || {};
+  });
+}
+
+/* ---------- 메인: 상단 공지 + 글자 바꾸기 적용 ---------- */
+function applyMain(){
+  var main = document.querySelector('main.set'), top = main && main.querySelector('.top');
+  var box = $('siteNotice');
+  if (!box && main){ box = E('div'); box.id = 'siteNotice'; main.insertBefore(box, top || main.firstChild); }
+  if (box){
+    box.innerHTML = '';
+    CFG.notice.filter(function(n){ return n.on && n.t; }).forEach(function(n){
+      var d = E('div'); d.className = 'sn';
+      if (okUrl(n.lk)){ var a = E('a', '', String(n.t)); a.href = n.lk; a.target = '_blank'; a.rel = 'noopener noreferrer'; d.append(a); } else d.textContent = String(n.t);
+      box.append(d);
+    });
+    box.style.display = box.children.length ? '' : 'none';
+  }
+  TARGETS.forEach(function(t){
+    var el = document.querySelector(t.sel); if (!el) return;
+    if (!(t.k in ORIG)) ORIG[t.k] = {h: el.innerHTML, p: el.getAttribute('placeholder'), d: el.style.display};
+    var c = CFG.text[t.k] || {};
+    el.style.display = (c.on === 0 || c.on === false) ? 'none' : ORIG[t.k].d;
+    if (t.mode === 'ph'){ if (c.v) el.setAttribute('placeholder', String(c.v)); else if (ORIG[t.k].p != null) el.setAttribute('placeholder', ORIG[t.k].p); }
+    else if (t.mode === 'html'){ if (c.v) el.textContent = String(c.v); else el.innerHTML = ORIG[t.k].h; }
+  });
+}
+
+/* ---------- 메인: 팝업 표시 ---------- */
+var hideKey = function(p){ return 'sitepop_hide_' + p.id; };
+function hidden(p){ try { var v = JSON.parse(localStorage.getItem(hideKey(p)) || 'null'); return !!(v && v.ts === (p.ts || 0) && v.until > Date.now()); } catch(e){ return false; } }
+function hideToday(p){ var d = new Date(); d.setHours(23, 59, 59, 999); try { localStorage.setItem(hideKey(p), JSON.stringify({ts: p.ts || 0, until: d.getTime()})); } catch(e){} }
+function inRange(p){
+  var now = Date.now();
+  if (p.from){ var f = new Date(p.from + 'T00:00:00').getTime(); if (now < f) return false; }
+  if (p.to){ var t = new Date(p.to + 'T23:59:59').getTime(); if (now > t) return false; }
+  return true;
+}
+function ensureOv(){
+  var ov = $('spOv'); if (ov) return ov;
+  ov = E('div'); ov.id = 'spOv'; ov.hidden = true; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true');
+  ov.append(E('div')); ov.firstChild.id = 'spBox';
+  document.body.append(ov); return ov;
+}
+function showPop(list, i, preview){
+  var ov = ensureOv(), box = $('spBox'); box.innerHTML = '';
+  if (i >= list.length){ ov.hidden = true; return; }
+  var p = list[i];
+  var h = E('div'); h.className = 'sph';
+  h.append(E('b', '', p.t || '공지'), E('small', '', list.length > 1 ? (i + 1) + ' / ' + list.length : ''));
+  box.append(h);
+  var imgs = (p.im || []).filter(okImg), vn = vidNode(p.vid);
+  if (imgs.length || vn){
+    var m = E('div'); m.className = 'spm';
+    imgs.forEach(function(s){ var im = document.createElement('img'); im.src = s; im.alt = p.t || '이미지'; m.append(im); });
+    if (vn) m.append(vn);
+    box.append(m);
+  }
+  if (p.b){ var b = E('div'); b.className = 'spb'; b.textContent = String(p.b); box.append(b); }
+  var f = E('div'); f.className = 'spf';
+  var left = E('span', 'display:flex;gap:8px;flex-wrap:wrap');
+  if (okUrl(p.lk)){ var a = E('a', '', p.lt || '자세히 보기'); a.className = 'addhome'; a.href = p.lk; a.target = '_blank'; a.rel = 'noopener noreferrer'; left.append(a); }
+  if (!preview){ var tb = E('button', '', '오늘 하루 보지 않기'); tb.type = 'button'; tb.className = 'addhome'; tb.onclick = function(){ hideToday(p); showPop(list, i + 1); }; left.append(tb); }
+  var cb = E('button', '', preview ? '닫기 (미리보기)' : '닫기'); cb.type = 'button'; cb.className = 'addhome'; cb.onclick = function(){ showPop(list, i + 1, preview); };
+  f.append(left, cb); box.append(f);
+  ov.hidden = false; cb.focus();
+}
+function runPopups(){
+  if (document.body.classList.contains('onlybox')) return;
+  var list = CFG.pop.filter(function(p){ return p.on && inRange(p) && !hidden(p); });
+  if (list.length) showPop(list, 0);
+}
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape'){ var ov = $('spOv'); if (ov && !ov.hidden){ ov.hidden = true; $('spBox').innerHTML = ''; } } });
+
+/* ---------- 이미지 줄이기 (서버 용량 절약) ---------- */
+function shrink(file){
+  return new Promise(function(res, rej){
+    if (!/^image\//.test(file.type)) return rej(new Error('이미지 파일이 아닙니다'));
+    var fr = new FileReader();
+    fr.onerror = function(){ rej(new Error('읽기 실패')); };
+    fr.onload = function(){
+      var im = new Image();
+      im.onerror = function(){ rej(new Error('이미지를 열 수 없습니다')); };
+      im.onload = function(){
+        var W = 900, s = Math.min(1, W / im.width), c = document.createElement('canvas');
+        c.width = Math.round(im.width * s); c.height = Math.round(im.height * s);
+        var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+        var q = .82, out = c.toDataURL('image/jpeg', q);
+        while (out.length > 330000 && q > .4){ q -= .1; out = c.toDataURL('image/jpeg', q); }
+        res(out);
+      };
+      im.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+/* ---------- 관리자 화면 ---------- */
+var UI = null, editing = null, tab = 'pop';
+function buildUI(){
+  var sec = $('admsec'); if (!sec || $('sitemgr')) return;
+  UI = E('div'); UI.id = 'sitemgr'; UI.className = 'gate'; UI.style.cssText = 'text-align:left;margin-bottom:10px';
+  var hd = E('div', 'color:var(--amber);font-weight:700;font-size:14px;margin-bottom:6px', '🪟 메인 팝업 · 글자 관리 — 관리자 전용 · 저장하면 모든 접속자 메인 화면에 바로 반영됩니다');
+  var tabs = E('div'); tabs.className = 'r tabs';
+  [['pop', '🪟 팝업'], ['notice', '📢 상단 공지 문구'], ['text', '✏️ 메인 글자 바꾸기']].forEach(function(t){
+    var b = E('button', '', t[1]); b.type = 'button'; b.className = 'addhome ab'; b.dataset.t = t[0];
+    b.onclick = function(){ tab = t[0]; draw(); }; tabs.append(b);
+  });
+  var body = E('div'); body.id = 'smBody';
+  UI.append(hd, tabs, body);
+  var first = sec.querySelector('.gate'); sec.insertBefore(UI, first || null);
+  draw();
+}
+function msg(t){ var m = $('smMsg'); if (m) m.textContent = t; }
+function fail(e){ msg('⚠ 저장 실패 — Firebase 규칙에서 chat/sitepop · sitenotice · sitetext 경로 쓰기를 허용해야 합니다.'); }
+function draw(){
+  if (!UI) return;
+  UI.querySelectorAll('.tabs button').forEach(function(b){ b.classList.toggle('on', b.dataset.t === tab); });
+  var body = $('smBody'); body.innerHTML = '';
+  if (tab === 'pop') drawPop(body); else if (tab === 'notice') drawNotice(body); else drawText(body);
+  var m = E('div'); m.className = 'sm'; m.id = 'smMsg'; body.append(m);
+}
+
+/* 팝업 탭 */
+function drawPop(body){
+  var d = editing || {id: '', t: '', b: '', im: [], vid: '', lk: '', lt: '', from: '', to: '', on: 1};
+  var f = E('div');
+  var t = E('input'); t.type = 'text'; t.maxLength = 60; t.placeholder = '팝업 제목'; t.value = d.t || ''; t.className = 'grow'; t.style.width = '100%';
+  var b = E('textarea'); b.maxLength = 2000; b.placeholder = '팝업 내용 (줄바꿈 그대로 표시됩니다)'; b.value = d.b || '';
+  var imgs = (d.im || []).slice();
+  var th = E('div'); th.className = 'thumbs';
+  function th2(){ th.innerHTML = ''; imgs.forEach(function(s, i){ var w = E('span'), im = document.createElement('img'); im.src = s; var x = E('b', '', '✕'); x.title = '이미지 빼기'; x.onclick = function(){ imgs.splice(i, 1); th2(); }; w.append(im, x); th.append(w); }); }
+  th2();
+  var file = document.createElement('input'); file.type = 'file'; file.accept = 'image/*'; file.multiple = true;
+  file.onchange = function(){
+    var fs = [].slice.call(file.files || []); if (!fs.length) return;
+    if (imgs.length + fs.length > 3){ msg('이미지는 최대 3장까지 넣을 수 있습니다.'); file.value = ''; return; }
+    msg('이미지 줄이는 중…');
+    Promise.all(fs.map(shrink)).then(function(a){ a.forEach(function(s){ imgs.push(s); }); th2(); msg('이미지 ' + a.length + '장 추가됨 (자동으로 줄였습니다)'); }).catch(function(e){ msg('⚠ ' + e.message); });
+    file.value = '';
+  };
+  var iu = E('input'); iu.type = 'url'; iu.placeholder = '또는 이미지 주소 (https://…)'; iu.className = 'grow';
+  var iub = E('button', '', '＋ 주소로 추가'); iub.type = 'button'; iub.className = 'addhome ab';
+  iub.onclick = function(){ var u = iu.value.trim(); if (!/^https:\/\//i.test(u)){ msg('이미지 주소는 https:// 로 시작해야 합니다.'); return; } if (imgs.length >= 3){ msg('이미지는 최대 3장입니다.'); return; } imgs.push(u); iu.value = ''; th2(); };
+  var v = E('input'); v.type = 'url'; v.placeholder = '동영상 링크 (유튜브 · Vimeo · mp4 주소)'; v.value = d.vid || ''; v.className = 'grow';
+  var lk = E('input'); lk.type = 'url'; lk.placeholder = '연결 링크 (선택, https://…)'; lk.value = d.lk || ''; lk.className = 'grow';
+  var lt = E('input'); lt.type = 'text'; lt.maxLength = 16; lt.placeholder = '버튼 글자 (예: 자세히 보기)'; lt.value = d.lt || '';
+  var fr = E('input'); fr.type = 'date'; fr.value = d.from || '';
+  var to = E('input'); to.type = 'date'; to.value = d.to || '';
+  var on = document.createElement('input'); on.type = 'checkbox'; on.checked = d.on !== 0 && d.on !== false;
+  function rec(){
+    var vt = v.value.trim(); if (vt && !okUrl(vt)) { msg('동영상 링크는 http(s):// 로 시작해야 합니다.'); return null; }
+    if (vt && !vidNode(vt)){ msg('⚠ 지원하지 않는 동영상 주소입니다. (유튜브·Vimeo·mp4/webm 링크만 가능)'); return null; }
+    var l = lk.value.trim(); if (l && !okUrl(l)){ msg('연결 링크는 http(s):// 로 시작해야 합니다.'); return null; }
+    if (!t.value.trim() && !b.value.trim() && !imgs.length && !vt){ msg('제목·내용·이미지·동영상 중 하나는 있어야 합니다.'); return null; }
+    return {t: t.value.trim().slice(0, 60), b: b.value.trim().slice(0, 2000), im: imgs.slice(), vid: vt, lk: l, lt: lt.value.trim().slice(0, 16), from: fr.value || '', to: to.value || '', on: on.checked ? 1 : 0};
+  }
+  var r1 = E('div'); r1.className = 'r'; r1.append(t);
+  var r2 = E('div'); r2.className = 'r'; r2.append(E('label', '', '📷 이미지 (최대 3장)'), file);
+  var r3 = E('div'); r3.className = 'r'; r3.append(iu, iub);
+  var r4 = E('div'); r4.className = 'r'; r4.append(E('label', '', '🎬'), v);
+  var r5 = E('div'); r5.className = 'r'; r5.append(lk, lt);
+  var r6 = E('div'); r6.className = 'r'; r6.append(E('label', '', '표시 기간(선택)'), fr, E('label', '', '~'), to);
+  var lab = E('label', 'display:flex;gap:6px;align-items:center;font-size:14px'); lab.append(on, document.createTextNode('메인에 표시 (끄면 접속자에게 안 뜸)'));
+  var r7 = E('div'); r7.className = 'r'; r7.append(lab);
+  var sv = E('button', '', editing ? '💾 수정 저장' : '＋ 팝업 등록'); sv.type = 'button'; sv.className = 'addhome ab';
+  sv.onclick = function(){
+    var x = rec(); if (!x) return; x.ts = Date.now();
+    var id = d.id || uid(); sv.disabled = true; msg('저장 중…');
+    fb('sitepop/' + id, 'PUT', x).then(function(){ editing = null; return load(); }).then(function(){ applyMain(); msg('✅ 저장되었습니다.'); draw(); msg('✅ 저장되었습니다.'); }).catch(fail).then(function(){ sv.disabled = false; });
+  };
+  var pv = E('button', '', '👁 미리보기'); pv.type = 'button'; pv.className = 'addhome ab';
+  pv.onclick = function(){ var x = rec(); if (!x) return; msg(''); showPop([x], 0, true); };
+  var nw = E('button', '', '새로 작성'); nw.type = 'button'; nw.className = 'addhome ab'; nw.onclick = function(){ editing = null; draw(); };
+  var r8 = E('div'); r8.className = 'r'; r8.append(sv, pv); if (editing) r8.append(nw);
+  f.append(r1, b, r2, th, r3, r4, r5, r6, r7, r8);
+  body.append(f);
+  body.append(E('div', 'font-weight:700;margin:12px 0 2px;font-size:13px', '등록된 팝업 (' + CFG.pop.length + ')'));
+  if (!CFG.pop.length) body.append(E('div', 'font-size:13px;opacity:.7', '아직 팝업이 없습니다.'));
+  CFG.pop.forEach(function(p){
+    var row = E('div'); row.className = 'row';
+    var c = document.createElement('input'); c.type = 'checkbox'; c.checked = !!p.on; c.title = '메인에 표시';
+    c.onchange = function(){ fb('sitepop/' + p.id + '/on', 'PUT', c.checked ? 1 : 0).then(function(){ p.on = c.checked ? 1 : 0; msg(c.checked ? '메인에 표시합니다.' : '메인에서 숨겼습니다.'); }).catch(function(e){ c.checked = !c.checked; fail(e); }); };
+    var tt = E('span', '', (p.t || '(제목 없음)') + (p.im && p.im.length ? ' 🖼' + p.im.length : '') + (p.vid ? ' 🎬' : '') + (p.from || p.to ? ' · ' + (p.from || '') + '~' + (p.to || '') : '')); tt.className = 'tt';
+    var ed = E('button', '', '수정'); ed.type = 'button'; ed.className = 'addhome ab'; ed.onclick = function(){ editing = JSON.parse(JSON.stringify(p)); draw(); body.scrollIntoView({block: 'nearest'}); };
+    var vw = E('button', '', '보기'); vw.type = 'button'; vw.className = 'addhome ab'; vw.onclick = function(){ showPop([p], 0, true); };
+    var dl = E('button', '', '삭제'); dl.type = 'button'; dl.className = 'addhome ab';
+    dl.onclick = function(){ if (!confirm('"' + (p.t || '팝업') + '" 팝업을 삭제할까요?')) return; fb('sitepop/' + p.id, 'DELETE').then(function(){ if (editing && editing.id === p.id) editing = null; return load(); }).then(function(){ draw(); msg('삭제했습니다.'); }).catch(fail); };
+    row.append(c, tt, ed, vw, dl); body.append(row);
+  });
+}
+
+/* 상단 공지 탭 */
+function drawNotice(body){
+  body.append(E('div', 'font-size:12px;opacity:.75;margin-bottom:4px', '메인 화면 맨 위에 띠로 나오는 한두 줄 안내입니다. 체크를 끄면 안 뜹니다.'));
+  var t = E('input'); t.type = 'text'; t.maxLength = 120; t.placeholder = '공지 문구'; t.className = 'grow';
+  var lk = E('input'); lk.type = 'url'; lk.placeholder = '연결 링크 (선택)'; lk.className = 'grow';
+  var ad = E('button', '', '＋ 추가'); ad.type = 'button'; ad.className = 'addhome ab';
+  ad.onclick = function(){
+    var s = t.value.trim(), l = lk.value.trim(); if (!s){ msg('문구를 입력해 주세요.'); return; } if (l && !okUrl(l)){ msg('링크는 http(s):// 로 시작해야 합니다.'); return; }
+    fb('sitenotice/' + uid(), 'PUT', {t: s, lk: l, on: 1, ts: Date.now()}).then(load).then(function(){ applyMain(); draw(); msg('✅ 추가되었습니다.'); }).catch(fail);
+  };
+  var r = E('div'); r.className = 'r'; r.append(t, lk, ad); body.append(r);
+  CFG.notice.forEach(function(n){
+    var row = E('div'); row.className = 'row';
+    var c = document.createElement('input'); c.type = 'checkbox'; c.checked = !!n.on; c.title = '메인에 표시';
+    c.onchange = function(){ fb('sitenotice/' + n.id + '/on', 'PUT', c.checked ? 1 : 0).then(function(){ n.on = c.checked ? 1 : 0; applyMain(); msg(c.checked ? '메인에 표시합니다.' : '메인에서 숨겼습니다.'); }).catch(function(e){ c.checked = !c.checked; fail(e); }); };
+    var tx = E('input'); tx.type = 'text'; tx.maxLength = 120; tx.value = n.t || ''; tx.className = 'grow';
+    var sv = E('button', '', '저장'); sv.type = 'button'; sv.className = 'addhome ab'; sv.onclick = function(){ var s = tx.value.trim(); if (!s) return; fb('sitenotice/' + n.id + '/t', 'PUT', s.slice(0, 120)).then(function(){ n.t = s; applyMain(); msg('✅ 수정되었습니다.'); }).catch(fail); };
+    var dl = E('button', '', '삭제'); dl.type = 'button'; dl.className = 'addhome ab'; dl.onclick = function(){ if (!confirm('이 공지 문구를 삭제할까요?')) return; fb('sitenotice/' + n.id, 'DELETE').then(load).then(function(){ applyMain(); draw(); }).catch(fail); };
+    row.append(c, tx, sv, dl); body.append(row);
+  });
+}
+
+/* 글자 바꾸기 탭 */
+function drawText(body){
+  body.append(E('div', 'font-size:12px;opacity:.75;margin-bottom:4px', '메인 화면의 기존 글자를 바꾸거나 숨깁니다. 칸을 비우고 저장하면 원래 글자로 돌아갑니다.'));
+  TARGETS.forEach(function(tg){
+    var el = document.querySelector(tg.sel), c = CFG.text[tg.k] || {};
+    var cur = c.v || (tg.mode === 'ph' ? (ORIG[tg.k] && ORIG[tg.k].p) || '' : (ORIG[tg.k] ? (function(){ var x = document.createElement('div'); x.innerHTML = ORIG[tg.k].h; return x.textContent.trim(); })() : ''));
+    var w = E('div', 'padding:6px 0;border-top:1px dashed #b99a5b44');
+    w.append(E('div', 'font-size:13px;font-weight:700;margin-bottom:4px', tg.label));
+    var r = E('div'); r.className = 'r';
+    var on = document.createElement('input'); on.type = 'checkbox'; on.checked = !(c.on === 0 || c.on === false);
+    var lb = E('label', 'display:flex;gap:4px;align-items:center;font-size:13px'); lb.append(on, document.createTextNode('메인에 표시'));
+    r.append(lb);
+    var tx = null;
+    if (tg.mode !== 'hide'){ tx = E('input'); tx.type = 'text'; tx.maxLength = 300; tx.className = 'grow'; tx.value = c.v ? c.v : ''; tx.placeholder = cur.slice(0, 80) || '(원래 글자)'; r.append(tx); }
+    var sv = E('button', '', '저장'); sv.type = 'button'; sv.className = 'addhome ab';
+    sv.onclick = function(){
+      var rec = {on: on.checked ? 1 : 0}; if (tx && tx.value.trim()) rec.v = tx.value.trim().slice(0, 300);
+      fb('sitetext/' + tg.k, 'PUT', rec).then(function(){ CFG.text[tg.k] = rec; applyMain(); msg('✅ 메인에 반영되었습니다.'); }).catch(fail);
+    };
+    r.append(sv); w.append(r); body.append(w);
+  });
+}
+
+/* ---------- 시작 ---------- */
+var _admShow = window.admShow;
+if (typeof _admShow === 'function'){ window.admShow = function(){ var r = _admShow.apply(this, arguments); try { if (isAdm()) buildUI(); } catch(e){} return r; }; }
+function init(){
+  load().then(function(){ applyMain(); runPopups(); if (isAdm()) buildUI(); }).catch(function(){});
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+window.addEventListener('load', function(){ if (isAdm()) buildUI(); });
+})();</script>
+
 </body>
 </html>
