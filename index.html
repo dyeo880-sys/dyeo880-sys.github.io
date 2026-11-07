@@ -1759,6 +1759,35 @@ function ccShow(c){
     if (!ov.children.length && sc){ const co = $('capov'); if (!co || !co.children.length) sc.classList.remove('capon'); }
   });
 }
+// 💯👏🔥 대화에 특정 말이 나오면 화면에 이모티콘이 떠오름 (새 글에만, 가상 손님 포함 / 위쪽 반응 표시 설정을 따름)
+const RXA = {room: null, seen: {}, n: 0, last: {}};
+const RXA_RULES = [
+  ['100', /💯|100\s*점|백\s*점|만점/],
+  ['clap', /👏|박수|짝짝|브라보|축하/],
+  ['fire', /🔥|불타|불꽃|핫하/],
+  ['lol', /😂|🤣|ㅋ{3,}|웃기|빵터/],
+  ['wow', /😮|😲|대박|우와|헐|와[~!]/]
+];
+function rxAuto(all){
+  const rk = $('room').value, first = RXA.room !== rk;
+  if (first){ RXA.room = rk; RXA.seen = {}; RXA.n = 0; }
+  if (RXA.n > 400){ RXA.seen = {}; RXA.n = 0; }
+  const now = Date.now(); let shown = 0;
+  all.forEach(c => {
+    if (!c || !c.t || c.news) return;
+    const k = (c.ts || 0) + '|' + (c.k || c.n) + '|' + c.t;
+    if (RXA.seen[k]) return; RXA.seen[k] = 1; RXA.n++;
+    if (first || shown >= 2) return;
+    if (c.ts && now - c.ts > 20000 && !c.bot) return;
+    const txt = String(c.t);
+    for (const [key, re] of RXA_RULES){
+      if (re.test(txt)){
+        if (now - (RXA.last[key] || 0) < 1500) break;
+        RXA.last[key] = now; shown++; mrxFloat(key, String(c.n || '').replace(/^🤖\s*/, '').slice(0, 12)); break;
+      }
+    }
+  });
+}
 function ccFeed(all, inLive){
   const rk = $('room').value, first = CC.room !== rk;
   if (first){ CC.room = rk; CC.seen = {}; CC.n = 0; const ov = $('chatcap'); if (ov) ov.textContent = ''; }
@@ -1783,11 +1812,17 @@ function renderChat(forceBottom){
   try { const bk = roomPath(); if (BOT && BOT.on && BOT.msgs.length && botKeyOk(bk)){ const bm = BOT.msgs.filter(m => m.r === bk); if (bm.length){ all = all.concat(bm); all.sort((a, b) => (a.ts || 0) - (b.ts || 0)); } } } catch(e){}   // 🤖 가상 손님(이 기기에서만)
   try { if (window.NEWSM && window.NEWSM.length && $('room').value.indexOf('u:') !== 0){ all = all.concat(window.NEWSM); all.sort((a, b) => (a.ts || 0) - (b.ts || 0)); } } catch(e){}   // 📰 실시간 뉴스(이 기기에만 표시)
   all = all.filter(c => !isBlockedMsg(c) && !c.cp);
+  // ⏱ 채팅·가상 손님 대사는 올라온 지 60초가 지나면 화면에서 사라짐 (뉴스 소식은 제외)
+  { const cutR = (typeof nowS === 'function' ? nowS() : Date.now()) - 60000, cutB = Date.now() - 60000;
+    all = all.filter(c => c.news || !c.ts || (typeof c.ts === 'number' && c.ts >= (c.bot ? cutB : cutR)));
+    window.CHAT_OLD = all.reduce((m, c) => (c.news || !c.ts || typeof c.ts !== 'number') ? m : Math.min(m, c.bot ? c.ts : c.ts - (typeof nowS === 'function' ? nowS() - Date.now() : 0)), Infinity); }
   try { if (liveRoom && $('room').value === 'b:' + liveRoom.id) all = all.filter(c => !(c.k && c.k !== UID && !c.h && ctlMuted(c.k))); } catch(e){}
   if (!all.length){ log.innerHTML = '<div class="empty">첫 메시지를 남겨 보세요.</div>'; return; }
+  if (all.length > 80) all = all.slice(-80);   // 오래 켜 둘수록 느려지지 않게 화면엔 최근 80개만 그림
   const isDmRoom = $('room').value.indexOf('u:') === 0;
   const inLive = !!(liveRoom && $('room').value === 'b:' + liveRoom.id);
   try { ccFeed(all, inLive); } catch(e){}
+  try { rxAuto(all); } catch(e){}
   all.forEach(c => {
     const d = document.createElement('div'); d.className = 'm' + (isDmRoom ? ' wh' : '');
     const b = document.createElement('b'); b.textContent = (c.bot ? '🤖 ' : '') + ((c.h || (inLive && !c.bot && c.k && ctlMgr(c.k))) ? '👑 ' : '') + c.n;
@@ -1811,6 +1846,7 @@ function renderChat(forceBottom){
   });
   if (near) log.scrollTop = log.scrollHeight;
 }
+setInterval(() => { try { if (!document.hidden && window.CHAT_OLD && Date.now() - window.CHAT_OLD > 60000) renderChat(); } catch(e){} }, 3000);   // 60초 지난 대화를 화면에서 치움
 function stopStream(){ if (es){ es.close(); es = null; esPath = ''; } }
 // 서버가 새 글을 바로 밀어주는 실시간 연결(SSE). 지원되지 않거나 끊기면 아래 폴링이 대신합니다.
 function startStream(){
@@ -2755,7 +2791,7 @@ function botSay(name, text, key, odd){
   if (typeof text === 'string' && text.indexOf('{n}') >= 0){ let _nm = ''; try { _nm = $('nick').value.trim().slice(0, 12); } catch(e){} text = text.replace(/\{n\}/g, _nm || '손님'); }   // 🔒 잠긴 방에서는 말하지 않음
   if (!odd && !botOk(text)) return;
   const now = Date.now(); key = key || roomPath(); BOT.last = name; BOT.recent.push(text); BOT.recent = BOT.recent.slice(-24);
-  BOT.msgs.push({n: name, t: text, ts: now, k: 'bot', bot: 1, r: key});
+  BOT.msgs.push({n: name, t: text, ts: now, k: 'bot', bot: 1, r: key}); if (BOT.msgs.length > 300) BOT.msgs.splice(0, BOT.msgs.length - 300);
   BOT.msgs = BOT.msgs.filter(m => now - m.ts < 600000).slice(-40);
   if (roomPath() === key) renderChat();
   if (Math.random() < 0.4){ const k = botReactFor(text); if (k){ const w = botWho([name]); setTimeout(() => botReact(w, k), 900 + Math.random() * 1500); } }
@@ -10537,7 +10573,7 @@ body:not(.fxon) #fxsky,body:not(.fxon) #fxb,body:not(.fxon) #fxf{display:none}
     o.style.opacity = wet ? .15 : (WX === 'cloud' || WX === 'fog' ? .45 : 1);
     var ns = PH + S + WX; if (ns !== sig){ sig = ns; build(); }
   }
-  var last = 0, running = false;
+  var last = 0, running = false, FXGAP = ((navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) ? 83 : 50;   // 약한 기기·휴대폰은 초당 12프레임
   function draw(t, dt){
     xb.clearRect(0, 0, W, Hh); xf.clearRect(0, 0, W, Hh); var rain = false, i, p;
     for (i = 0; i < P.length; i++){ p = P[i];
@@ -10556,7 +10592,7 @@ body:not(.fxon) #fxsky,body:not(.fxon) #fxb,body:not(.fxon) #fxf{display:none}
       if (shoot){ shoot.x -= W * .8 * dt; shoot.y += Hh * .35 * dt; shoot.life -= dt * 1.3; xb.globalAlpha = Math.max(shoot.life, 0); xb.strokeStyle = '#fff'; xb.lineWidth = 2 * D;
         xb.beginPath(); xb.moveTo(shoot.x, shoot.y); xb.lineTo(shoot.x + W * .13, shoot.y - Hh * .06); xb.stroke(); if (shoot.life <= 0) shoot = null; } }
   }
-  function loop(t){ if (!on){ running = false; return; } requestAnimationFrame(loop); if (document.hidden || t - last < 50) return; var dt = Math.min((t - last) / 1000, .06); last = t; draw(t, dt); }
+  function loop(t){ if (!on){ running = false; return; } requestAnimationFrame(loop); if (document.hidden || t - last < FXGAP) return; var dt = Math.min((t - last) / 1000, .06); last = t; draw(t, dt); }
   function apply(){
     document.body.classList.toggle('fxon', on); btn.classList.toggle('off', !on); btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     if (on){ render(); if (calm) draw(0, 0); else if (!running){ running = true; requestAnimationFrame(loop); } }
