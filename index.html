@@ -3117,8 +3117,21 @@ $('roomname').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isC
 
 // ===== 동시 접속 인원 제한 (채팅에만 적용, 라디오 재생은 영향 없음) =====
 // ★★ 인원 제한 바꾸는 곳 ★★ 사람이 늘면 아래 TOTAL_CAP 숫자만 올려서 다시 올리면 됩니다.
-const TOTAL_CAP = 30;      // 동시 접속 최대 인원 (관리자 자리 포함)  → 일반 사용자는 TOTAL_CAP - ADMIN_SLOTS 명까지
+const TOTAL_CAP = 1003;      // 동시 접속 최대 인원 (관리자 자리 포함)  → 일반 사용자는 TOTAL_CAP - ADMIN_SLOTS 명까지
 const ADMIN_SLOTS = 3;     // 일반 사용자가 꽉 찼을 때만 쓰는 관리자 전용 여유 자리 (3명, 항상 비워 둠)
+// ===== 자동 인원 조절: 접속자 목록 다운로드 용량이 커지면 일반 인원을 줄이고, 여유가 생기면 다시 늘립니다 (관리자 자리는 항상 유지) =====
+const CAPCFG = {auto: 1, budgetMB: 1024, min: 27, max: TOTAL_CAP - ADMIN_SLOTS};   // 관리자 화면「접속 인원」탭에서 바꿀 수 있음
+const CAPST = {bytes: 0, n: 0, f: 1, cap: TOTAL_CAP - ADMIN_SLOTS, per: 0};
+function capLat(dt){ CAPST.f = dt > 4000 ? Math.max(.3, CAPST.f * .8) : Math.min(1, CAPST.f + .05); }   // 서버가 느려지면 줄이고, 빨라지면 천천히 복구
+function genLimit(){
+  const maxc = Math.max(1, (CAPCFG.max | 0) || (TOTAL_CAP - ADMIN_SLOTS)), minc = Math.min(Math.max(1, CAPCFG.min | 0), maxc);
+  if (!CAPCFG.auto || !CAPST.n || !CAPST.bytes){ CAPST.cap = maxc; return maxc; }
+  CAPST.per = CAPST.bytes / CAPST.n;                       // 접속자 1명 정보 크기(바이트)
+  const polls = 3600000 / 15000;                            // 한 사람이 1시간에 목록을 받는 횟수
+  const byBudget = Math.floor(Math.sqrt(CAPCFG.budgetMB * 1048576 / (CAPST.per * polls)));   // 예산 안에 드는 최대 인원
+  CAPST.cap = Math.max(minc, Math.min(maxc, Math.floor(byBudget * CAPST.f)));
+  return CAPST.cap;
+}
 // 관리자 비밀번호는 원문이 아니라 소금(salt)+PBKDF2-SHA256 해시로만 저장됩니다.
 const ADMIN_SALT = '388be6ce3adfc793126b94b9cb8b5127';
 const ADMIN_HASH = '523ad5681024f93d1eafc8f7890b50a3b93820a06e78f3d64dceb3ed250c75e5';
@@ -3137,9 +3150,12 @@ async function presenceTouch(){
   const sv = {'.sv': 'timestamp'};
   const w = await fetch(presUrl(myId), {method: 'PUT', body: JSON.stringify({ts: sv, j: joinTs || sv, a: isAdmin, n: ($('nick').value || '').trim().slice(0, 12), k: UID, ip: (window.IPID || '')})});
   if (!w.ok) throw new Error(w.status);
+  const t0 = Date.now();
   const r = await fetch(`${DB}/presence.json`);
   if (!r.ok) throw new Error(r.status);
-  const all = await r.json() || {};
+  const txt = await r.text(), dt = Date.now() - t0;
+  let all = {}; try { all = JSON.parse(txt) || {}; } catch(e){ throw new Error('presence'); }
+  CAPST.bytes = txt.length; CAPST.n = Object.keys(all).length; capLat(dt);
   const me = all[myId];
   if (!me) throw new Error('presence');
   joinTs = me.j;
@@ -3185,7 +3201,7 @@ async function admit(){
     if (isAdmin){
       ok = live.filter(p => p.a).sort(order).findIndex(p => p.id === myId) < ADMIN_SLOTS;
     } else {
-      ok = live.filter(p => !p.a).sort(order).findIndex(p => p.id === myId) < TOTAL_CAP - ADMIN_SLOTS;
+      ok = live.filter(p => !p.a).sort(order).findIndex(p => p.id === myId) < genLimit();
     }
     if (!ok) await leave();
     setAllowed(ok, live.length, isAdmin);
@@ -11277,6 +11293,15 @@ function load(){
   });
 }
 
+function loadCap(){
+  return fb('sitecap').then(function(c){
+    if (!c || typeof CAPCFG === 'undefined') return;
+    if (c.auto != null) CAPCFG.auto = c.auto ? 1 : 0;
+    if (c.budgetMB > 0) CAPCFG.budgetMB = Math.min(+c.budgetMB, 1e6);
+    if (c.min > 0) CAPCFG.min = Math.min(+c.min, 5000);
+    if (c.max > 0) CAPCFG.max = Math.min(+c.max, 5000);
+  }).catch(function(){});
+}
 /* ---------- 메인: 상단 공지 + 글자 바꾸기 적용 ---------- */
 function applyMain(){
   var main = document.querySelector('main.set'), top = main && main.querySelector('.top');
@@ -11377,7 +11402,7 @@ function buildUI(){
   UI = E('div'); UI.id = 'sitemgr'; UI.className = 'gate'; UI.style.cssText = 'text-align:left;margin-bottom:10px';
   var hd = E('div', 'color:var(--amber);font-weight:700;font-size:14px;margin-bottom:6px', '🪟 메인 팝업 · 글자 관리 — 관리자 전용 · 저장하면 모든 접속자 메인 화면에 바로 반영됩니다');
   var tabs = E('div'); tabs.className = 'r tabs';
-  [['pop', '🪟 팝업'], ['notice', '📢 상단 공지 문구'], ['text', '✏️ 메인 글자 바꾸기']].forEach(function(t){
+  [['pop', '🪟 팝업'], ['notice', '📢 상단 공지 문구'], ['text', '✏️ 메인 글자 바꾸기'], ['cap', '👥 접속 인원']].forEach(function(t){
     var b = E('button', '', t[1]); b.type = 'button'; b.className = 'addhome ab'; b.dataset.t = t[0];
     b.onclick = function(){ tab = t[0]; draw(); }; tabs.append(b);
   });
@@ -11392,7 +11417,7 @@ function draw(){
   if (!UI) return;
   UI.querySelectorAll('.tabs button').forEach(function(b){ b.classList.toggle('on', b.dataset.t === tab); });
   var body = $('smBody'); body.innerHTML = '';
-  if (tab === 'pop') drawPop(body); else if (tab === 'notice') drawNotice(body); else drawText(body);
+  if (tab === 'pop') drawPop(body); else if (tab === 'notice') drawNotice(body); else if (tab === 'cap') drawCap(body); else drawText(body);
   var m = E('div'); m.className = 'sm'; m.id = 'smMsg'; body.append(m);
 }
 
@@ -11510,11 +11535,37 @@ function drawText(body){
   });
 }
 
+/* 접속 인원 탭 */
+function drawCap(body){
+  body.append(E('div', 'font-size:12px;opacity:.75;margin-bottom:6px', '관리자 자리 3명은 항상 따로 남겨 둡니다. 아래는 일반 접속자 인원을 자동으로 줄이고 늘리는 설정입니다. 접속자 목록을 내려받는 용량이 예산을 넘을 것 같거나 서버 응답이 느려지면 인원이 줄고(나중에 들어온 사람부터 대기), 여유가 생기면 다시 늘어납니다.'));
+  var live = E('div', 'font-size:13px;line-height:1.7;background:#1a0f08;border-radius:6px;padding:8px 10px;margin-bottom:8px');
+  function stat(){
+    if (typeof CAPST === 'undefined'){ live.textContent = '상태를 읽을 수 없습니다.'; return; }
+    var perH = CAPST.n * CAPST.bytes * 240 / 1048576;
+    live.textContent = '현재 접속 기록 ' + CAPST.n + '명 · 일반 허용 인원 ' + (typeof genLimit === 'function' ? genLimit() : '-') + '명 · 1시간 예상 다운로드 약 ' + (perH < 10 ? perH.toFixed(1) : Math.round(perH)) + 'MB · 서버 속도 보정 ' + Math.round(CAPST.f * 100) + '%';
+  }
+  stat(); body.append(live);
+  var au = document.createElement('input'); au.type = 'checkbox'; au.checked = !!CAPCFG.auto;
+  var al = E('label', 'display:flex;gap:6px;align-items:center;font-size:14px'); al.append(au, document.createTextNode('자동 조절 사용 (끄면 아래 최대 인원으로 고정)'));
+  var r0 = E('div'); r0.className = 'r'; r0.append(al);
+  function num(v, w){ var i = document.createElement('input'); i.type = 'number'; i.min = 1; i.value = v; i.style.cssText = 'width:' + w + 'px;background:#1a0f08;color:var(--ink);border:1px solid #b99a5b88;border-radius:6px;padding:7px 8px'; return i; }
+  var bu = num(CAPCFG.budgetMB, 90), mn = num(CAPCFG.min, 70), mx = num(CAPCFG.max, 70);
+  var r1 = E('div'); r1.className = 'r'; r1.append(E('label', '', '1시간 다운로드 예산(MB)'), bu, E('label', '', '최소 인원'), mn, E('label', '', '최대 인원'), mx);
+  var sv = E('button', '', '💾 저장'); sv.type = 'button'; sv.className = 'addhome ab';
+  sv.onclick = function(){
+    var c = {auto: au.checked ? 1 : 0, budgetMB: Math.max(10, +bu.value || 1024), min: Math.max(1, +mn.value || 27), max: Math.max(1, +mx.value || 1000)};
+    if (c.min > c.max){ msg('최소 인원이 최대 인원보다 클 수 없습니다.'); return; }
+    fb('sitecap', 'PUT', c).then(function(){ return loadCap(); }).then(function(){ stat(); msg('✅ 저장되었습니다. 접속자 화면에는 몇 분 안에 반영됩니다.'); }).catch(function(){ msg('⚠ 저장 실패 — Firebase 규칙에서 chat/sitecap 경로 쓰기를 허용해야 합니다.'); });
+  };
+  var r2 = E('div'); r2.className = 'r'; r2.append(sv); body.append(r0, r1, r2);
+}
+
 /* ---------- 시작 ---------- */
 var _admShow = window.admShow;
 if (typeof _admShow === 'function'){ window.admShow = function(){ var r = _admShow.apply(this, arguments); try { if (isAdm()) buildUI(); } catch(e){} return r; }; }
 function init(){
   load().then(function(){ applyMain(); runPopups(); if (isAdm()) buildUI(); }).catch(function(){});
+  loadCap(); setInterval(loadCap, 300000);
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 window.addEventListener('load', function(){ if (isAdm()) buildUI(); });
