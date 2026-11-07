@@ -164,7 +164,7 @@ body.onlybox #roomview[hidden]{display:block!important;position:fixed;left:-1000
 .mwscreen video{max-width:100%;max-height:calc(34vh * var(--mws));border-radius:8px;background:#000}
 .vr.bad{opacity:.4;text-decoration:line-through}.vr.good::before{content:'● ';color:#6fd36f;font-size:10px}
 body.hidebad .vr.bad{display:none}
-.mwtalk{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;font-size:13px}.mwtalk[hidden]{display:none}.mwtalk button{margin:0;padding:4px 10px;font-size:13px}.mwtalk button.blocked{border-color:#ff4d4d;color:#ff6b6b}#talkmsg.blkmsg{color:#ff6b6b;font-weight:700;opacity:1!important}.debate{background:#1a0f08;border-radius:8px;padding:8px 10px;margin:0 0 8px;font-size:13px}.debate[hidden]{display:none}.debate .rxt{color:var(--amber);font-weight:700;margin-bottom:6px;font-size:12px}.debate .rxrow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}.debate .rxb{margin:0;padding:5px 10px;font-size:13px}.debate .rxb.on{background:var(--amber);color:#2a1a08;font-weight:700}.debate .rxh{font-size:12px;opacity:.9;margin-top:2px}.rxbar{display:flex;height:8px;border-radius:4px;overflow:hidden;margin:0 0 8px;background:#3a2a1a}.rxbar span{display:block;height:100%}#rxfloat{position:fixed;left:0;right:0;bottom:70px;height:0;pointer-events:none;z-index:60}.rxf{position:absolute;bottom:0;display:flex;flex-direction:column;align-items:center;animation:rxup 3s ease-out forwards}.rxf span{font-size:38px;line-height:1}.rxf small{font-size:11px;background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:1px 6px}@keyframes rxup{0%{transform:translateY(0) scale(.6);opacity:0}15%{opacity:1;transform:translateY(-30px) scale(1.1)}100%{transform:translateY(-260px) scale(1);opacity:0}}#talkhost{flex-basis:100%;background:#1a0f08;border-radius:6px;padding:6px 8px}#talkhost .tk{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:3px 0}#talkhost .tk b{color:var(--amber)}
+.mwtalk{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;font-size:13px}.mwtalk[hidden]{display:none}.mwtalk button{margin:0;padding:4px 10px;font-size:13px}.mwtalk button.blocked{border-color:#ff4d4d;color:#ff6b6b}#talkmsg.blkmsg{color:#ff6b6b;font-weight:700;opacity:1!important}.debate{background:#1a0f08;border-radius:8px;padding:8px 10px;margin:0 0 8px;font-size:13px}.debate[hidden]{display:none}.debate .rxt{color:var(--amber);font-weight:700;margin-bottom:6px;font-size:12px}.debate .rxrow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}.debate .rxb{margin:0;padding:5px 10px;font-size:13px}.debate .rxb.on{background:var(--amber);color:#2a1a08;font-weight:700}.debate .rxh{font-size:12px;opacity:.9;margin-top:2px}.rxbar{display:flex;height:8px;border-radius:4px;overflow:hidden;margin:0 0 8px;background:#3a2a1a}.rxbar span{display:block;height:100%}#rxfloat{position:fixed;left:0;right:0;bottom:70px;height:0;pointer-events:none;z-index:60}.rxf{position:absolute;bottom:0;display:flex;flex-direction:column;align-items:center;animation:rxup 6s ease-out forwards}.rxf span{font-size:38px;line-height:1}.rxf small{font-size:11px;background:rgba(0,0,0,.6);color:#fff;border-radius:8px;padding:1px 6px}@keyframes rxup{0%{transform:translateY(0) scale(.6);opacity:0}8%{opacity:1;transform:translateY(-30px) scale(1.1)}75%{opacity:1}100%{transform:translateY(-260px) scale(1);opacity:0}}#talkhost{flex-basis:100%;background:#1a0f08;border-radius:6px;padding:6px 8px}#talkhost .tk{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:3px 0}#talkhost .tk b{color:var(--amber)}
 @keyframes tkblink{0%,100%{opacity:1;box-shadow:0 0 0 0 #ff4d4d}50%{opacity:.35;box-shadow:0 0 10px 3px #ff4d4d}}
 .blink{animation:tkblink 1s ease-in-out infinite}
 #tkbadge{background:#c0392b;color:#fff;font-size:12px;font-weight:700;border-radius:999px;padding:3px 9px;white-space:nowrap}#tkbadge[hidden]{display:none}
@@ -2978,12 +2978,14 @@ function mrxFloat(k, name, force, txt, uid){
   if (!RXSHOW && !force) return;
   let ly = document.getElementById('mrxfloat');
   if (!ly){ ly = document.createElement('div'); ly.id = 'mrxfloat'; ly.setAttribute('aria-hidden', 'true'); ly.style.cssText = 'position:fixed;left:0;right:0;bottom:70px;height:0;pointer-events:none;z-index:85'; document.body.append(ly); }
-  if (ly.children.length > 24) return;
+  if (ly.children.length > 40) return;
   const e = k === 'txt' ? ['txt', String(txt || '').slice(0, 14), ''] : (MRX_MAP[k] || [k, k, '']);
   const d = document.createElement('div'); d.className = 'rxf'; d.style.left = (6 + Math.random() * 84) + '%';
   const a = document.createElement('span'); a.textContent = e[1]; if (k === 'txt'){ a.style.cssText = 'font-size:24px;font-weight:800;color:#ffe9a8;text-shadow:0 2px 6px #000,0 0 10px #000;white-space:nowrap'; }
   const n = document.createElement('small'); n.textContent = (String(name || '') + (e[2] ? ' · ' + e[2] : '')).slice(0, 18);
-  d.append(a, n); ly.append(d); setTimeout(() => d.remove(), 3200);
+  const dur = (k === 'txt' || txt) ? 9000 : 6000; d.style.animationDuration = dur + 'ms';   // 이모티콘 6초 · 글씨 9초 동안 떠 있음
+  if (k !== 'txt' && txt){ const c = document.createElement('span'); c.textContent = String(txt).slice(0, 14); c.style.cssText = 'font-size:20px;font-weight:800;color:#ffe9a8;text-shadow:0 2px 6px #000,0 0 10px #000;white-space:nowrap;margin-top:2px'; d.append(a, c, n); } else d.append(a, n);
+  ly.append(d); setTimeout(() => d.remove(), dur + 300);
   // 🖼 누른 사람이 올려 둔 사진·아이콘을 이름 옆에 함께 띄움 (없으면 이름만)
   if (uid){
     const put = () => { try { const v = AV.map[uid]; if (!avGood(v) || avHidden(uid) || n.querySelector('img')) return true; const im = document.createElement('img'); im.src = v.d; im.alt = ''; im.style.cssText = 'width:18px;height:18px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:4px;border:1px solid #fff8'; n.prepend(im); return true; } catch(e){ return true; } };
@@ -2995,9 +2997,9 @@ async function mrxSend(k, nm, txt){
   if (!DB || !chatAllowed || mrxFail) return;
   const n = Date.now(); if (n - mrxSentAt < 700) return; mrxSentAt = n;
   try {   // 칸 40개를 돌려 쓰며 덮어쓰므로 데이터가 쌓이지 않음
-    const r = await fetch(`${DB}/mainrx/s${Math.floor(n / 250) % 40}.json`, {method: 'PUT', body: JSON.stringify(k === 'txt' ? {e: k, x: txt, n: nm, u: myId, b: UID, ts: nowS()} : {e: k, n: nm, u: myId, b: UID, ts: nowS()})});
+    const r = await fetch(`${DB}/mainrx/s${Math.floor(n / 250) % 40}.json`, {method: 'PUT', body: JSON.stringify(txt ? {e: k, x: txt, n: nm, u: myId, b: UID, ts: nowS()} : {e: k, n: nm, u: myId, b: UID, ts: nowS()})});
     if (!r.ok) throw new Error(r.status);
-  } catch(e){ mrxFail = true; mrxNote('지금은 내 화면에서만 보입니다. (Firebase 규칙에 mainrx 읽기·쓰기를 추가하면 다른 접속자에게도 보입니다)'); }
+  } catch(e){ mrxFail = true; setTimeout(() => { mrxFail = false; }, 60000); mrxNote('지금은 내 화면에서만 보입니다. (Firebase 규칙에 mainrx 읽기·쓰기를 추가하면 다른 접속자에게도 보입니다)'); }
 }
 async function mrxPoll(){
   if (!DB || !chatAllowed || mrxFail || document.hidden) return;
@@ -3007,23 +3009,25 @@ async function mrxPoll(){
     Object.keys(d).forEach(s => {
       const m = d[s]; if (!m || !(MRX_MAP[m.e] || (m.e === 'txt' && m.x)) || m.u === myId) return;
       if (m.b && typeof BLK !== 'undefined' && BLK[m.b]) return;   // 차단한 사람 것은 숨김
-      if (!(m.ts > (mrxSeen[s] || 0)) || now - m.ts > 9000) return;
-      mrxSeen[s] = m.ts; if (m.e === 'txt'){ let bad = false; try { bad = BAD_RE.test(String(m.x)); } catch(e){} if (!bad) mrxFloat('txt', String(m.n || '손님').slice(0, 12), false, String(m.x).slice(0, 14), m.b); } else mrxFloat(m.e, String(m.n || '손님').slice(0, 12), false, '', m.b);
+      if (!(m.ts > (mrxSeen[s] || 0)) || now - m.ts > 20000) return;
+      mrxSeen[s] = m.ts; if (m.e === 'txt'){ let bad = false; try { bad = BAD_RE.test(String(m.x)); } catch(e){} if (!bad) mrxFloat('txt', String(m.n || '손님').slice(0, 12), false, String(m.x).slice(0, 14), m.b); } else { let tx = ''; if (typeof m.x === 'string' && m.x && !BAD_RE.test(m.x)) tx = m.x.slice(0, 14); mrxFloat(m.e, String(m.n || '손님').slice(0, 12), false, tx, m.b); }
     });
-  } catch(e){ mrxFail = true; mrxNote('지금은 내 화면에서만 보입니다. (Firebase 규칙에 mainrx 읽기·쓰기를 추가하면 다른 접속자에게도 보입니다)'); }
+  } catch(e){ mrxFail = true; setTimeout(() => { mrxFail = false; }, 60000); mrxNote('지금은 내 화면에서만 보입니다. (Firebase 규칙에 mainrx 읽기·쓰기를 추가하면 다른 접속자에게도 보입니다)'); }
 }
 function mrxPress(k, txt){
+  txt = String(txt || '').trim().slice(0, 12);
+  if (txt && BAD_RE.test(txt)){ mrxNote('사용할 수 없는 말입니다.'); return; }
   const n = Date.now(); if (n - mrxLast < 300) return; mrxLast = n;
   let nm = ''; try { nm = String(($('nick').value || '').trim()).slice(0, 12); } catch(e){}
   nm = nm || '나'; mrxFloat(k, nm, true, txt, UID); mrxSend(k, nm, txt);
 }
 (() => { const row = $('mrxrow'); if (!row) return;
-  MRX.forEach(([k, ic, nm]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'addhome'; b.style.cssText = 'margin:0;padding:6px 12px'; b.textContent = ic + ' ' + nm; b.onclick = () => mrxPress(k); row.append(b); });
+  MRX.forEach(([k, ic, nm]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'addhome'; b.style.cssText = 'margin:0;padding:6px 12px'; b.textContent = ic + ' ' + nm; b.onclick = () => { const ti = document.getElementById('mrxtx'), v = ti ? ti.value : ''; mrxPress(k, v); if (ti && v.trim()) ti.value = ''; }; row.append(b); });
 })();
 // ✏ 내 글씨 반응 — 글씨를 적어 보내면 화면에 떠오르고, 자주 쓰는 말은 버튼으로 저장(최대 6개)
 (() => { const row = $('mrxrow'); if (!row) return;
   const box = document.createElement('div'); box.style.cssText = 'flex:1 0 100%;display:flex;flex-wrap:wrap;gap:6px;align-items:center';
-  const inp = document.createElement('input'); inp.type = 'text'; inp.maxLength = 12; inp.placeholder = '✏ 내 글씨 (12자까지)'; inp.setAttribute('aria-label', '화면에 띄울 글씨'); inp.style.cssText = 'width:150px;background:#241610;color:var(--ink);border:1px solid #b99a5b88;border-radius:6px;padding:6px 10px';
+  const inp = document.createElement('input'); inp.type = 'text'; inp.id = 'mrxtx'; inp.maxLength = 12; inp.placeholder = '✏ 내 글씨 (12자까지)'; inp.setAttribute('aria-label', '화면에 띄울 글씨'); inp.style.cssText = 'width:150px;background:#241610;color:var(--ink);border:1px solid #b99a5b88;border-radius:6px;padding:6px 10px';
   const mk = (txt, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'addhome'; b.style.cssText = 'margin:0;padding:6px 12px'; b.textContent = txt; b.onclick = fn; return b; };
   const saved = document.createElement('span'); saved.style.cssText = 'display:contents';
   let L = []; try { L = JSON.parse(localStorage.getItem('radio_mrx_custom') || '[]').filter(x => typeof x === 'string').slice(0, 6); } catch(e){}
@@ -3034,7 +3038,7 @@ function mrxPress(k, txt){
   inp.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); if (send(inp.value)) inp.value = ''; } });
   draw(); row.append(box);
 })();
-setInterval(mrxPoll, 3500);
+setInterval(mrxPoll, 2500);
 $('room').onchange = () => {
   const v = $('room').value, isDm = v.indexOf('u:') === 0;
   if (isDm){ delete unread[v.slice(2)]; peerSig = ''; renderRooms(v); }
