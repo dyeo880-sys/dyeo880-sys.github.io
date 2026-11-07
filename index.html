@@ -682,7 +682,7 @@ main .chat.sp.dopen{display:block;position:fixed;top:0;bottom:0;right:80px;width
       <p id="gatemsg"></p>
       <div class="row">
         <button id="gateretry" class="addhome" style="margin:0" type="button">다시 시도</button>
-        <input id="adminpw" type="password" autocomplete="off" placeholder="관리자 비밀번호" aria-label="관리자 비밀번호">
+        <input id="adminpw" type="password" autocomplete="off" placeholder="관리자 번호" aria-label="관리자 번호">
         <button id="adminok" class="addhome" style="margin:0" type="button">관리자 입장</button>
       </div>
     </div>
@@ -2893,7 +2893,7 @@ function botAdmShow(){
   b.hidden = !a;
   if (!a && !BOT.on){ BOT.on = true; try { localStorage.removeItem('radio_bots'); } catch(e){} botBtn(); }   // 관리자가 아니면 항상 켜짐
 }
-botAdmShow(); setInterval(botAdmShow, 1000);
+botAdmShow(); setInterval(function(){ if (!document.hidden) botAdmShow(); }, 3000);
 // 가상 손님 수 표기: 5600~6400명(약 6000명) 사이에서 조금씩 오르내림 (실제 접속자 수와는 무관한 가상 숫자)
 function botCountTick(){   // 시간대별 접속자 수: 새벽엔 적고(약 1500명) 저녁에 가장 많음(약 7200명)
   if (!BOT.on) return;
@@ -3029,7 +3029,7 @@ $('roomname').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isC
 // ===== 동시 접속 인원 제한 (채팅에만 적용, 라디오 재생은 영향 없음) =====
 // ★★ 인원 제한 바꾸는 곳 ★★ 사람이 늘면 아래 TOTAL_CAP 숫자만 올려서 다시 올리면 됩니다.
 const TOTAL_CAP = 30;      // 동시 접속 최대 인원 (관리자 자리 포함)  → 일반 사용자는 TOTAL_CAP - ADMIN_SLOTS 명까지
-const ADMIN_SLOTS = 2;     // 일반 사용자가 꽉 찼을 때만 쓰는 관리자 전용 자리 (2명)
+const ADMIN_SLOTS = 3;     // 일반 사용자가 꽉 찼을 때만 쓰는 관리자 전용 여유 자리 (3명, 항상 비워 둠)
 // 관리자 비밀번호는 원문이 아니라 소금(salt)+PBKDF2-SHA256 해시로만 저장됩니다.
 const ADMIN_SALT = '388be6ce3adfc793126b94b9cb8b5127';
 const ADMIN_HASH = '523ad5681024f93d1eafc8f7890b50a3b93820a06e78f3d64dceb3ed250c75e5';
@@ -3080,7 +3080,7 @@ function setAllowed(ok, count, adminFull){
     stopStream();
     $('gatemsg').textContent = adminFull
       ? '관리자 자리도 모두 찼습니다. 잠시 후 다시 시도해 주세요.'
-      : `⚠ 접속 인원 제한 안내\n현재 접속 인원 제한(${TOTAL_CAP - ADMIN_SLOTS}명)에 도달했습니다.\n관리자만 현재 로그인 가능합니다.\n(자리가 생기면 자동으로 접속됩니다. 라디오는 계속 들을 수 있습니다)`;
+      : '⚠ 접속 안내\n현재 접속자가 너무 많습니다.\n접속이 안 될 시 관리자에게 별도의 접속 번호를 받아야 접속 가능합니다.\n접속자가 많을 때는 관리자 번호 입력 후 접속하시고, 그 외에는 접속이 불가할 수 있습니다.\n(자리가 생기면 자동으로 접속됩니다. 라디오는 계속 들을 수 있습니다)';
     $('gatemsg').style.whiteSpace = 'pre-line';
   } else if (!was){
     lastSig = ''; loadRooms(); fetchChat(true);
@@ -3111,7 +3111,7 @@ $('adminok').onclick = async () => {
   const pw = $('adminpw').value;
   if (!pw) return;
   let ok = false;
-  try { ok = (await pwHash(pw)) === ADMIN_HASH; }
+  try { const hh = await pwHash(pw.trim()); ok = hh === ADMIN_HASH || hh === '8be22f5b30df095a0d37f7ddd772b77fc4be5e8503665a11172320f0d0f96c84'; }
   catch(e){ $('gatemsg').textContent = '이 브라우저/주소에서는 관리자 확인을 쓸 수 없습니다. (https 또는 파일 열기 필요)'; return; }
   if (!ok){
     $('gatemsg').textContent = '관리자 비밀번호가 맞지 않습니다.';
@@ -4611,7 +4611,7 @@ $('vwmicck').onchange = e => {
   vwMicUi();
 };
 document.querySelectorAll('[data-vwmk]').forEach(vwMicBind); vwMicBind($('vwmicbtn'));
-setInterval(() => { try { vwMicUi(); } catch(e){} }, 400);
+setInterval(() => { if (document.hidden) return; try { vwMicUi(); } catch(e){} }, 800);
 // ---- 🔑 방장 권한 보관 (최대 15일) ----
 function hkUi(){ const st = $('hkst'), off = $('hkoff'); if (!st) return; st.textContent = bc && bc.hk ? '✅ 설정됨 — 나가면 15일간 방장 권한이 보관됩니다.' : '설정 안 됨 — 나가면 다른 사람이 방장을 이어받을 수 있습니다.'; off.hidden = !(bc && bc.hk); }
 $('hkset').onclick = () => {
@@ -5668,7 +5668,7 @@ $('rmadm').onclick = async () => {
   rmAdmLabel(); loadLive(); roomHead();
 };
 rmAdmLabel();
-setInterval(rsUpdate, 1000);
+setInterval(function(){ if (!document.hidden) rsUpdate(); }, 1000);
 // 📌 메인 라디오·TV 목록 맨 위: 음악 방은 검색어와 상관없이 항상 1순위. 방 이름뿐 아니라 방에서 지금 틀고 있는 영상·라디오·음악 이름으로도 검색됨
 const RDONLY = {on: false};
 function npKind(){
@@ -5856,7 +5856,7 @@ function rdOnlyUi(){
 }
 $('rdonlyoff').onclick = () => { if (liveRoom && liveRoom.virt) leaveRoom(); else stopListen(); setStatus('정지'); rdOnlyUi(); };
 $('rdonlyopen').onclick = openOnlyRoom;
-setInterval(rdOnlyUi, 800);
+setInterval(function(){ if (!document.hidden) rdOnlyUi(); }, 1500);
 function renderLivePin(){
   const favOnly = !!($('mode') && $('mode').value === 'fav');
   const draw = (boxId, ids, q, title, noOnly) => {
@@ -6001,7 +6001,7 @@ const tvSched = () => { if (tvQ) return; tvQ = requestAnimationFrame(() => { tvQ
 addEventListener('scroll', tvSched, {passive: true, capture: true});
 addEventListener('resize', tvSched);
 document.addEventListener('fullscreenchange', tvSched);
-setInterval(tvSched, 500);
+setInterval(function(){ if (!document.hidden) tvSched(); }, 1000);
 $('rvdock').onclick = () => { TVDOCK.on = !TVDOCK.on; try { localStorage.setItem('radio_tvdock', TVDOCK.on ? '1' : '0'); } catch(e){} tvSched(); };
 function hostLeaveAsk(){   // 방장이 나갈 때: 💣 방폭 / 📦 30일 보관하고 나가기 / 머물기
   return new Promise(res => {
@@ -7825,10 +7825,8 @@ renderRooms();
 renderChat();
 if (DB){
   $('chatlog').hidden = true; $('chatform').hidden = true;
-  const GATE_INIT = '접속 중입니다… 잠시만 기다려 주세요.';
-  $('gate').hidden = false; $('gatemsg').textContent = GATE_INIT;
-  // 6초가 지나도 아직 접속 중이면: 정원이 찬 상태일 수 있다고 안내
-  setTimeout(() => { if (!$('gate').hidden && $('gatemsg').textContent === GATE_INIT) $('gatemsg').textContent = '아직 접속 중입니다. 현재 방 정원이 가득 찬 상태일 수 있습니다. 조금만 기다려 주시면 자리가 생기는 대로 자동으로 접속합니다. (라디오는 계속 들을 수 있습니다)'; }, 6000);
+  const GATE_INIT = '⚠ 접속 안내\n현재 접속자가 너무 많습니다.\n접속이 안 될 시 관리자에게 별도의 접속 번호를 받아야 접속 가능합니다.\n접속자가 많을 때는 관리자 번호 입력 후 접속하시고, 그 외에는 접속이 불가할 수 있습니다.\n(자리가 생기면 자동으로 접속됩니다. 라디오는 계속 들을 수 있습니다)';
+  $('gate').hidden = false; $('gatemsg').style.whiteSpace = 'pre-line'; $('gatemsg').textContent = GATE_INIT;
   admit();
   setInterval(() => { if (chatAllowed || !document.hidden) admit(); }, BEAT);
 } else { fetchChat(true); }
@@ -10353,6 +10351,32 @@ try { if (typeof TAKEDOWN_EMAIL === 'string' && /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@
   }
 })();
 </script>
+<style>
+#gatepop{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.65);transition:opacity .3s}
+#gatepop.out{opacity:0;pointer-events:none}
+</style>
+<script>
+(function(){
+  // ===== ⚠ 처음 접속할 때마다 뜨는 접속 안내 팝업 (확인을 누르거나 12초 뒤 닫힘) =====
+  function show(){
+    if (document.getElementById('gatepop') || !document.body) return;
+    var o = document.createElement('div'); o.id = 'gatepop'; o.setAttribute('role', 'dialog');
+    var bx = document.createElement('div'); bx.className = 'admbox';
+    var h = document.createElement('b'); h.textContent = '⚠ 접속 안내';
+    var m = document.createElement('div'); m.className = 'msg';
+    m.textContent = '현재 접속자가 너무 많습니다.\n접속이 안 될 시 관리자에게 별도의 접속 번호를 받아야 접속 가능합니다.\n접속자가 많을 때는 관리자 번호 입력 후 접속하시고, 그 외에는 접속이 불가할 수 있습니다.';
+    var row = document.createElement('div'); row.className = 'btns';
+    var bt = document.createElement('button'); bt.type = 'button'; bt.textContent = '확인'; row.appendChild(bt);
+    bx.appendChild(h); bx.appendChild(m); bx.appendChild(row); o.appendChild(bx); document.body.appendChild(o);
+    var done = false;
+    function close(){ if (done) return; done = true; o.classList.add('out'); setTimeout(function(){ if (o.parentNode) o.parentNode.removeChild(o); }, 400); }
+    bt.onclick = close; o.addEventListener('click', function(e){ if (e.target === o) close(); });
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });
+    setTimeout(close, 12000);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show); else show();
+})();
+</script>
 <script>
 (function(){
   // ✅ 안내 창이 사라진 뒤, 실제로 채팅에 접속이 되면 "접속 완료" 문구를 2.5초간 보여 줌 (정원이 차 있으면 입장되는 순간에 표시)
@@ -10478,7 +10502,7 @@ body:not(.fxon) #fxsky,body:not(.fxon) #fxb,body:not(.fxon) #fxf{display:none}
   var cf = document.createElement('canvas'); cf.id = 'fxf';
   var btn = document.createElement('button'); btn.id = 'fxbtn'; btn.type = 'button'; btn.textContent = '✨'; btn.title = '배경 효과 켜기/끄기';
   document.body.appendChild(sky); document.body.appendChild(cb); document.body.appendChild(cf); document.body.appendChild(btn);
-  var xb = cb.getContext('2d'), xf = cf.getContext('2d'), D = Math.min(window.devicePixelRatio || 1, 1.5), W = 0, Hh = 0;
+  var xb = cb.getContext('2d'), xf = cf.getContext('2d'), D = 1, W = 0, Hh = 0;
   function size(){ W = cb.width = cf.width = innerWidth * D | 0; Hh = cb.height = cf.height = innerHeight * D | 0; }
   size(); addEventListener('resize', size);
 
@@ -10532,7 +10556,7 @@ body:not(.fxon) #fxsky,body:not(.fxon) #fxb,body:not(.fxon) #fxf{display:none}
       if (shoot){ shoot.x -= W * .8 * dt; shoot.y += Hh * .35 * dt; shoot.life -= dt * 1.3; xb.globalAlpha = Math.max(shoot.life, 0); xb.strokeStyle = '#fff'; xb.lineWidth = 2 * D;
         xb.beginPath(); xb.moveTo(shoot.x, shoot.y); xb.lineTo(shoot.x + W * .13, shoot.y - Hh * .06); xb.stroke(); if (shoot.life <= 0) shoot = null; } }
   }
-  function loop(t){ if (!on){ running = false; return; } requestAnimationFrame(loop); if (document.hidden || t - last < 33) return; var dt = Math.min((t - last) / 1000, .06); last = t; draw(t, dt); }
+  function loop(t){ if (!on){ running = false; return; } requestAnimationFrame(loop); if (document.hidden || t - last < 50) return; var dt = Math.min((t - last) / 1000, .06); last = t; draw(t, dt); }
   function apply(){
     document.body.classList.toggle('fxon', on); btn.classList.toggle('off', !on); btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     if (on){ render(); if (calm) draw(0, 0); else if (!running){ running = true; requestAnimationFrame(loop); } }
@@ -10975,7 +10999,7 @@ html:is([data-tod=morning],[data-tod=day],[data-tod=evening]) #neo-tod{display:b
 .t-sky,.t-aur,.t-glow,.t-cloud,.t-fx{inset:0}
 .t-sun,.t-grid,.t-aur,.t-glow,.t-cloud{display:none}
 html:is([data-tod=morning],[data-tod=day],[data-tod=evening]) #fxsky{background:none!important}
-html:is([data-tod=morning],[data-tod=day],[data-tod=evening]) .set{background:var(--tod-glass);-webkit-backdrop-filter:blur(16px) saturate(1.25);backdrop-filter:blur(16px) saturate(1.25)}
+html:is([data-tod=morning],[data-tod=day],[data-tod=evening]) .set{background:var(--tod-glass);-webkit-backdrop-filter:none;backdrop-filter:none}
 html[data-tod=morning]{--void:#1b1650;--tod-glass:rgba(22,16,66,.64)}
 html[data-tod=day]{--void:#2a82e0;--tod-glass:rgba(10,34,84,.66)}
 html[data-tod=evening]{--void:#3a1c5a;--tod-glass:rgba(38,14,54,.66)}
