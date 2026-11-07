@@ -585,6 +585,20 @@ main .chat.sp.dopen{display:block;position:fixed;top:0;bottom:0;right:80px;width
 #rkbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}#rkbar button{margin:0;padding:5px 10px}#rklist div{padding:4px 2px;border-bottom:1px solid #b99a5b33}.rtg{color:var(--amber);font-size:.85em;margin-left:6px}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<style>
+/* 💬 메인 화면(넓은 화면): 채팅창을 본문 오른쪽(또는 왼쪽)에 붙여 스크롤해도 따라오게 함 */
+@media (min-width:1100px){
+main.set:has(>#chatsec){max-width:1480px;display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,28vw,420px);column-gap:16px;row-gap:0;align-items:start}
+main.set:has(>#chatsec)>*{grid-column:1}
+main.set:has(>#chatsec)>#chatsec{grid-column:2;grid-row:1 / span 80;margin-top:0;position:sticky;top:10px;min-width:0;max-height:calc(100vh - 24px);overflow-y:auto}
+main.set.chatL:has(>#chatsec){grid-template-columns:clamp(320px,28vw,420px) minmax(0,1fr)}
+main.set.chatL:has(>#chatsec)>*{grid-column:2}
+main.set.chatL:has(>#chatsec)>#chatsec{grid-column:1}
+main.set:has(>#chatsec) #chatlog{height:calc(100vh - 360px);min-height:220px}
+}
+@media (max-width:1099px){#chatside{display:none}}
+#roomview #chatside{display:none}
+</style>
 </head>
 <body>
 <main class="set">
@@ -672,7 +686,7 @@ main .chat.sp.dopen{display:block;position:fixed;top:0;bottom:0;right:80px;width
     </div>
   </section>
   <section class="chat" id="chatsec" aria-label="채팅">
-    <div class="chathead"><strong>채팅</strong><select id="room" aria-label="채팅방"><option value="lobby">전체 채팅방</option><option value="station">현재 방송국 채팅방</option></select><button id="newroom" class="addhome" style="margin:0;padding:6px 10px" type="button">🎵 음악 방 만들기</button><input id="nick" maxlength="12" placeholder="닉네임" aria-label="닉네임"><button id="avbtn" class="addhome" type="button" style="margin:0;padding:6px 10px" title="내 사진 올리기 (작게 줄여 올리며 2시간 뒤·나갈 때 자동 삭제)">🖼 내 사진</button><button id="avicon" class="addhome" type="button" style="margin:0;padding:6px 10px" title="사진 대신 아이콘(이모티콘) 고르기">😀 아이콘</button><button id="avdel" class="addhome" type="button" hidden style="margin:0;padding:6px 8px" title="내 사진 지우기" aria-label="내 사진 지우기">✕</button><input id="avfile" type="file" accept="image/*" hidden><button id="botbtn" class="addhome" type="button" hidden style="margin:0;padding:6px 10px"></button></div>
+    <div class="chathead"><strong>채팅</strong><select id="room" aria-label="채팅방"><option value="lobby">전체 채팅방</option><option value="station">현재 방송국 채팅방</option></select><button id="newroom" class="addhome" style="margin:0;padding:6px 10px" type="button">🎵 음악 방 만들기</button><button id="chatside" class="addhome" type="button" style="margin:0;padding:6px 10px" title="넓은 화면에서 채팅창을 본문 오른쪽/왼쪽으로 옮깁니다 (이 기기에 기억)">↔ 채팅 좌우</button><input id="nick" maxlength="12" placeholder="닉네임" aria-label="닉네임"><button id="avbtn" class="addhome" type="button" style="margin:0;padding:6px 10px" title="내 사진 올리기 (작게 줄여 올리며 2시간 뒤·나갈 때 자동 삭제)">🖼 내 사진</button><button id="avicon" class="addhome" type="button" style="margin:0;padding:6px 10px" title="사진 대신 아이콘(이모티콘) 고르기">😀 아이콘</button><button id="avdel" class="addhome" type="button" hidden style="margin:0;padding:6px 8px" title="내 사진 지우기" aria-label="내 사진 지우기">✕</button><input id="avfile" type="file" accept="image/*" hidden><button id="botbtn" class="addhome" type="button" hidden style="margin:0;padding:6px 10px"></button></div>
     <div class="roomform" id="roomform" hidden>
       <input id="roomname" maxlength="20" placeholder="새 채팅방 이름 (최대 20자)" aria-label="새 채팅방 이름">
       <button id="roomok" class="addhome" style="margin:0" type="button">만들기</button>
@@ -779,9 +793,12 @@ main .chat.sp.dopen{display:block;position:fixed;top:0;bottom:0;right:80px;width
     <div class="lbpg" id="lb_pg"></div>
   </section>
   <section id="mainrx" aria-label="반응 버튼" style="margin:0 0 12px">
-    <div class="note" style="margin:0 0 6px;font-weight:700;color:var(--amber)">🎉 반응 버튼 — 누르면 화면에 날아갑니다</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 6px"><div class="note" style="margin:0;font-weight:700;color:var(--amber)">🎉 반응 버튼 — 누르면 화면에 날아갑니다</div><button id="mrxall" class="addhome" type="button" style="margin:0;padding:4px 10px;font-size:13px" title="반응 버튼 칸과 다른 사람 반응을 한 번에 숨기거나 다시 봅니다 (이 기기에만 적용)">🙈 반응 전체 숨기기</button><button id="mrxhide" class="addhome" type="button" style="margin:0;padding:4px 10px;font-size:13px" title="반응 버튼 칸을 접거나 펼칩니다 (이 기기에만 적용)">🙈 버튼 숨기기</button><label class="chatnote" style="margin:0;cursor:pointer;white-space:nowrap" title="체크를 풀면 다른 사람이 누른 반응이 내 화면에 안 보입니다"><input type="checkbox" id="mrxshow" checked> 👁 다른 사람 반응 보기</label></div>
+    <div id="mrxbody">
+    <div id="mrxface" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px"><button id="mrxfbtn" class="addhome" type="button" style="margin:0;padding:6px 12px" title="내 얼굴 고르기 (이 기기에만 저장 · 반응을 누를 때만 작게 줄여 함께 날아가고 서버에는 남지 않음)">🖼 내 얼굴 고르기</button><button id="mrxfdel" class="addhome" type="button" hidden style="margin:0;padding:6px 8px" title="내 사진 지우기" aria-label="내 사진 지우기">✕</button><label class="chatnote" style="margin:0;cursor:pointer;white-space:nowrap" title="체크하면 반응이 날아갈 때 얼굴이 크게 같이 나옵니다"><input type="checkbox" id="mrxfon" checked> 🙂 반응에 얼굴 크게</label><input id="mrxffile" type="file" accept="image/*" hidden><img id="mrxfprev" alt="" hidden style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1px solid #b99a5b"></div>
     <div id="mrxrow" style="display:flex;flex-wrap:wrap;gap:8px"></div>
     <div class="chatnote" id="mrxnote"></div>
+    </div>
   </section>
   <section class="chat" id="gamesec" aria-label="별점 랭킹">
     <div class="chathead"><strong>⭐ 별점 · 🏆 랭킹</strong><span><button class="addhome gt on" data-t="st" type="button">⭐ 별점</button><button class="addhome gt" data-t="rk" type="button">🏆 랭킹</button></span></div>
@@ -2973,8 +2990,10 @@ setInterval(botCountTick, BOT_CFG.every);
 // 진짜 접속자가 누르면 내 화면에 날아가고(다른 접속자 화면에도 전달), 🤖 가상 손님도 같은 화면에서 함께 누릅니다.
 const MRX = [['100','💯','100점'],['clap','👏','박수'],['fire','🔥','불꽃'],['lol','😂','웃김'],['hmm','🤔','의문'],['wow','😮','놀람'],['like','👍','좋아요'],['heart','❤️','하트'],['party','🎉','축하'],['thanks','🙏','감사'],['cry','😢','슬퍼요'],['angry','😡','화나요'],['eyes','👀','주목'],['music','🎶','음악 좋아'],['agree','🤝','공감'],['sleep','😴','졸려요'],['star','⭐','최고'],['hi','👋','안녕']];
 const MRX_MAP = {}; MRX.forEach(x => { MRX_MAP[x[0]] = x; });
+const MRX_FACE_OK = /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/;
+function mrxMyFace(){ try { if (localStorage.getItem('radio_mrx_face') === '0') return ''; const v = localStorage.getItem('radio_mrx_facedata') || ''; return (MRX_FACE_OK.test(v) && v.length < 5000) ? v : ''; } catch(e){ return ''; } }
 let mrxLast = 0, mrxSentAt = 0, mrxFail = false; const mrxSeen = {};
-function mrxFloat(k, name, force, txt, uid){
+function mrxFloat(k, name, force, txt, uid, face, who){
   if (!RXSHOW && !force) return;
   let ly = document.getElementById('mrxfloat');
   if (!ly){ ly = document.createElement('div'); ly.id = 'mrxfloat'; ly.setAttribute('aria-hidden', 'true'); ly.style.cssText = 'position:fixed;left:0;right:0;bottom:70px;height:0;pointer-events:none;z-index:85'; document.body.append(ly); }
@@ -2985,6 +3004,10 @@ function mrxFloat(k, name, force, txt, uid){
   const n = document.createElement('small'); n.textContent = (String(name || '') + (e[2] ? ' · ' + e[2] : '')).slice(0, 18);
   const dur = (k === 'txt' || txt) ? 9000 : 6000; d.style.animationDuration = dur + 'ms';   // 이모티콘 6초 · 글씨 9초 동안 떠 있음
   if (k !== 'txt' && txt){ const c = document.createElement('span'); c.textContent = String(txt).slice(0, 14); c.style.cssText = 'font-size:20px;font-weight:800;color:#ffe9a8;text-shadow:0 2px 6px #000,0 0 10px #000;white-space:nowrap;margin-top:2px'; d.append(a, c, n); } else d.append(a, n);
+  if (face && MRX_FACE_OK.test(face) && face.length < 5000){ const f = document.createElement('img'); f.src = face; f.alt = ''; f.style.cssText = 'width:54px;height:54px;border-radius:50%;object-fit:cover;border:3px solid #ffe9a8;box-shadow:0 2px 10px #000;margin-bottom:3px'; d.insertBefore(f, d.firstChild); }
+  if (who && who.u){ d.dataset.b = who.b || ''; d.style.pointerEvents = 'auto'; d.style.cursor = 'pointer'; d.title = '누르면 좋아요·튕기기·귓속말';
+    d.addEventListener('mouseenter', () => { d.style.animationPlayState = 'paused'; }); d.addEventListener('mouseleave', () => { d.style.animationPlayState = ''; });
+    d.addEventListener('click', ev => { ev.stopPropagation(); mrxMenu(d, who); }); }
   ly.append(d); setTimeout(() => d.remove(), dur + 300);
   // 🖼 누른 사람이 올려 둔 사진·아이콘을 이름 옆에 함께 띄움 (없으면 이름만)
   if (uid){
@@ -2992,12 +3015,43 @@ function mrxFloat(k, name, force, txt, uid){
     if (uid in AV.map) put(); else { try { avLoad(uid); } catch(e){} let c = 0; const iv = setInterval(() => { if ((uid in AV.map) || ++c > 8){ clearInterval(iv); put(); } }, 250); }
   }
 }
+function mrxBounce(el){ try { if (!el || el.dataset.bn) return; el.dataset.bn = 1; const r = el.getBoundingClientRect(), dx = (Math.random() < .5 ? -1 : 1) * (window.innerWidth * .6), st = getComputedStyle(el).transform; el.style.animation = 'none'; el.style.transform = st === 'none' ? '' : st; el.style.pointerEvents = 'none';
+  const a = el.animate([{transform: (st === 'none' ? '' : st) + ' rotate(0deg)', opacity: 1}, {transform: 'translate(' + (dx * .5) + 'px,-90px) rotate(360deg)', opacity: 1, offset: .4}, {transform: 'translate(' + dx + 'px,60px) rotate(900deg)', opacity: 0}], {duration: 900, easing: 'ease-out', fill: 'forwards'}); a.onfinish = () => el.remove(); } catch(e){ try { el.remove(); } catch(_){} } }
+function mrxCloseMenu(){ const o = document.getElementById('mrxmenu'); if (o) o.remove(); }
+async function mrxAct(a, tb, nm){
+  if (!DB || !chatAllowed) return;
+  const n = Date.now();
+  try { await fetch(`${DB}/mainrx/s${Math.floor(n / 250) % 40}.json`, {method: 'PUT', body: JSON.stringify({e: 'act', a, t: tb, n: nm, u: myId, b: UID, ts: nowS()})}); } catch(e){}
+}
+function mrxMenu(el, who){
+  mrxCloseMenu();
+  let nm = ''; try { nm = String(($('nick').value || '').trim()).slice(0, 12); } catch(e){} nm = nm || '손님';
+  const wn = String(who.n || '손님').slice(0, 12);
+  const m = document.createElement('div'); m.id = 'mrxmenu';
+  const r = el.getBoundingClientRect();
+  m.style.cssText = 'position:fixed;z-index:95;background:#241610;border:1px solid #b99a5b;border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;box-shadow:0 4px 14px #000a;color:var(--ink)';
+  const t = document.createElement('div'); t.textContent = wn + '님'; t.style.cssText = 'font-size:12px;font-weight:700;color:var(--amber);text-align:center'; m.append(t);
+  const mk = (txt, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'addhome'; b.style.cssText = 'margin:0;padding:6px 12px'; b.textContent = txt; b.onclick = ev => { ev.stopPropagation(); mrxCloseMenu(); fn(); }; return b; };
+  m.append(
+    mk('👍 좋아요', () => { mrxFloat('like', nm + '→' + wn, true); mrxAct('like', who.b, nm); }),
+    mk('🏀 튕기기', () => { mrxBounce(el); mrxAct('bounce', who.b, nm); }),
+    mk('✉ 귓속말', () => { try { whisperTo({u: who.u, n: wn, k: who.b}); } catch(e){} })
+  );
+  document.body.append(m);
+  const w = m.offsetWidth, h = m.offsetHeight;
+  m.style.left = Math.max(6, Math.min(window.innerWidth - w - 6, r.left + r.width / 2 - w / 2)) + 'px';
+  m.style.top = Math.max(6, Math.min(window.innerHeight - h - 6, r.top - h - 6)) + 'px';
+  setTimeout(() => { document.addEventListener('click', mrxCloseMenu, {once: true}); }, 0);
+  setTimeout(mrxCloseMenu, 6000);
+}
 function mrxNote(t){ try { const n = $('mrxnote'); if (n) n.textContent = t || ''; } catch(e){} }
-async function mrxSend(k, nm, txt){
+async function mrxSend(k, nm, txt, face){
   if (!DB || !chatAllowed || mrxFail) return;
   const n = Date.now(); if (n - mrxSentAt < 700) return; mrxSentAt = n;
   try {   // 칸 40개를 돌려 쓰며 덮어쓰므로 데이터가 쌓이지 않음
-    const r = await fetch(`${DB}/mainrx/s${Math.floor(n / 250) % 40}.json`, {method: 'PUT', body: JSON.stringify(txt ? {e: k, x: txt, n: nm, u: myId, b: UID, ts: nowS()} : {e: k, n: nm, u: myId, b: UID, ts: nowS()})});
+    const url = `${DB}/mainrx/s${Math.floor(n / 250) % 40}.json`, base = txt ? {e: k, x: txt, n: nm, u: myId, b: UID, ts: nowS()} : {e: k, n: nm, u: myId, b: UID, ts: nowS()};
+    let r = await fetch(url, {method: 'PUT', body: JSON.stringify(face ? Object.assign({}, base, {f: face}) : base)});
+    if (!r.ok && face){ r = await fetch(url, {method: 'PUT', body: JSON.stringify(base)}); if (r.ok) mrxNote('얼굴 없이 보냈습니다. (서버 규칙이 얼굴 칸을 막고 있을 수 있어요)'); }
     if (!r.ok) throw new Error(r.status);
   } catch(e){ mrxFail = true; setTimeout(() => { mrxFail = false; }, 60000); mrxNote('지금은 내 화면에서만 보입니다. (Firebase 규칙에 mainrx 읽기·쓰기를 추가하면 다른 접속자에게도 보입니다)'); }
 }
@@ -3006,12 +3060,21 @@ async function mrxPoll(){
   try {
     const r = await fetch(`${DB}/mainrx.json`); if (!r.ok) throw new Error(r.status);
     const d = (await r.json()) || {}, now = nowS();
-    Object.keys(d).forEach(s => {
-      const m = d[s]; if (!m || !(MRX_MAP[m.e] || (m.e === 'txt' && m.x)) || m.u === myId) return;
+    Object.keys(d).forEach(s => { try {
+      const m = d[s];
+      if (m && m.e === 'act' && m.u !== myId){
+        if (m.b && typeof BLK !== 'undefined' && BLK[m.b]) return;
+        if (!(m.ts > (mrxSeen[s] || 0)) || now - m.ts > 20000) return; mrxSeen[s] = m.ts;
+        if (m.t && m.t === UID){ const sn = String(m.n || '손님').slice(0, 12); let bad = false; try { bad = BAD_RE.test(sn); } catch(e){} if (bad) return;
+          if (m.a === 'like') mrxFloat('like', sn, true);
+          else if (m.a === 'bounce'){ document.querySelectorAll('.rxf[data-b="' + UID + '"]').forEach(mrxBounce); mrxFloat('txt', sn, true, '🏀 얼굴 튕김'); } }
+        return;
+      }
+      if (!m || !(MRX_MAP[m.e] || (m.e === 'txt' && m.x)) || m.u === myId) return;
       if (m.b && typeof BLK !== 'undefined' && BLK[m.b]) return;   // 차단한 사람 것은 숨김
       if (!(m.ts > (mrxSeen[s] || 0)) || now - m.ts > 20000) return;
-      mrxSeen[s] = m.ts; if (m.e === 'txt'){ let bad = false; try { bad = BAD_RE.test(String(m.x)); } catch(e){} if (!bad) mrxFloat('txt', String(m.n || '손님').slice(0, 12), false, String(m.x).slice(0, 14), m.b); } else { let tx = ''; if (typeof m.x === 'string' && m.x && !BAD_RE.test(m.x)) tx = m.x.slice(0, 14); mrxFloat(m.e, String(m.n || '손님').slice(0, 12), false, tx, m.b); }
-    });
+      mrxSeen[s] = m.ts; if (m.e === 'txt'){ let bad = false; try { bad = BAD_RE.test(String(m.x)); } catch(e){} if (!bad) mrxFloat('txt', String(m.n || '손님').slice(0, 12), false, String(m.x).slice(0, 14), m.b, m.f, {u: m.u, b: m.b, n: m.n}); } else { let tx = ''; if (typeof m.x === 'string' && m.x && !BAD_RE.test(m.x)) tx = m.x.slice(0, 14); mrxFloat(m.e, String(m.n || '손님').slice(0, 12), false, tx, m.b, m.f, {u: m.u, b: m.b, n: m.n}); }
+    } catch(_){} });
   } catch(e){ mrxFail = true; setTimeout(() => { mrxFail = false; }, 60000); mrxNote('지금은 내 화면에서만 보입니다. (Firebase 규칙에 mainrx 읽기·쓰기를 추가하면 다른 접속자에게도 보입니다)'); }
 }
 function mrxPress(k, txt){
@@ -3019,7 +3082,7 @@ function mrxPress(k, txt){
   if (txt && BAD_RE.test(txt)){ mrxNote('사용할 수 없는 말입니다.'); return; }
   const n = Date.now(); if (n - mrxLast < 300) return; mrxLast = n;
   let nm = ''; try { nm = String(($('nick').value || '').trim()).slice(0, 12); } catch(e){}
-  nm = nm || '나'; mrxFloat(k, nm, true, txt, UID); mrxSend(k, nm, txt);
+  nm = nm || '나'; const fc = mrxMyFace(); mrxFloat(k, nm, true, txt, UID, fc); mrxSend(k, nm, txt, fc);
 }
 (() => { const row = $('mrxrow'); if (!row) return;
   MRX.forEach(([k, ic, nm]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'addhome'; b.style.cssText = 'margin:0;padding:6px 12px'; b.textContent = ic + ' ' + nm; b.onclick = () => { const ti = document.getElementById('mrxtx'), v = ti ? ti.value : ''; mrxPress(k, v); if (ti && v.trim()) ti.value = ''; }; row.append(b); });
@@ -3037,6 +3100,47 @@ function mrxPress(k, txt){
   box.append(inp, mk('📣 띄우기', () => { if (send(inp.value)) inp.value = ''; }), mk('💾 버튼으로 저장', () => { const v = inp.value.trim().slice(0, 12); if (!v) return; if (L.includes(v)) return; if (L.length >= 6){ mrxNote('저장 버튼은 6개까지입니다. ✕ 로 지운 뒤 추가하세요.'); return; } L.push(v); save(); draw(); inp.value = ''; mrxNote(''); }), saved);
   inp.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); if (send(inp.value)) inp.value = ''; } });
   draw(); row.append(box);
+})();
+(() => { const fb = $('mrxfbtn'), fd = $('mrxfdel'), fo = $('mrxfon'), pv = $('mrxfprev'), ff = $('mrxffile'); if (!fb) return;
+  try { fo.checked = localStorage.getItem('radio_mrx_face') !== '0'; } catch(e){}
+  fo.onchange = () => { try { localStorage.setItem('radio_mrx_face', fo.checked ? '1' : '0'); } catch(e){} };
+  const sync = () => { const v = mrxMyFace() || (() => { try { return localStorage.getItem('radio_mrx_facedata') || ''; } catch(e){ return ''; } })(); const has = MRX_FACE_OK.test(v); fb.textContent = has ? '🖼 얼굴 바꾸기' : '🖼 내 얼굴 고르기'; fd.hidden = !has; pv.hidden = !has; if (has) pv.src = v; };
+  const sh = $('mrxshow'); if (sh){ sh.checked = RXSHOW; sh.onchange = () => { rxShowSet(sh.checked); const r2 = $('rxon'); if (r2) r2.checked = RXSHOW; }; const r2 = $('rxon'); if (r2) r2.addEventListener('change', () => { sh.checked = RXSHOW; }); }
+  fb.onclick = () => ff.click();
+  fd.onclick = () => { if (confirm('내 얼굴 사진을 지울까요?')){ try { localStorage.removeItem('radio_mrx_facedata'); } catch(e){} sync(); } };
+  ff.onchange = async e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+    if (!/^image\//.test(f.type)){ mrxNote('사진 파일만 고를 수 있습니다.'); return; }
+    try {
+      const url = URL.createObjectURL(f); let img; try { img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; }); } finally { URL.revokeObjectURL(url); }
+      const S = 48, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d'); g.fillStyle = '#1a0f08'; g.fillRect(0, 0, S, S);
+      const w = img.naturalWidth, h = img.naturalHeight, m = Math.min(w, h); g.drawImage(img, (w - m) / 2, (h - m) / 2, m, m, 0, 0, S, S);
+      let q = .7, d = cv.toDataURL('image/jpeg', q); while (d.length > 3500 && q > .25){ q -= .1; d = cv.toDataURL('image/jpeg', q); }
+      if (d.length > 4800){ mrxNote('사진을 충분히 줄이지 못했습니다. 다른 사진을 써 보세요.'); return; }
+      localStorage.setItem('radio_mrx_facedata', d); mrxNote('🖼 내 얼굴을 골랐습니다. 반응을 누를 때만 함께 날아가며 서버에는 남지 않습니다.'); sync();
+    } catch(e){ mrxNote('사진을 읽지 못했습니다. 다른 사진(JPG·PNG)으로 해 보세요.'); }
+  };
+  sync();
+})();
+(() => { const hb = $('mrxhide'), bd = $('mrxbody'); if (!hb || !bd) return;
+  const apply = h => { bd.hidden = h; hb.textContent = h ? '👀 반응 버튼 보기' : '🙈 버튼 숨기기'; };
+  let h = false; try { h = localStorage.getItem('radio_mrx_hide') === '1'; } catch(e){}
+  apply(h);
+  hb.onclick = () => { h = !h; try { localStorage.setItem('radio_mrx_hide', h ? '1' : '0'); } catch(e){} apply(h); };
+})();
+(() => { const mn = document.querySelector('main.set'), cb = $('chatside'); if (!mn || !cb) return;
+  let L = false; try { L = localStorage.getItem('radio_chat_side') === 'L'; } catch(e){}
+  const ap = () => { mn.classList.toggle('chatL', L); cb.textContent = L ? '↔ 채팅 오른쪽으로' : '↔ 채팅 왼쪽으로'; };
+  ap(); cb.onclick = () => { L = !L; try { localStorage.setItem('radio_chat_side', L ? 'L' : 'R'); } catch(e){} ap(); };
+})();
+(() => { const al = $('mrxall'), hb = $('mrxhide'), sh = $('mrxshow'), bd = $('mrxbody'); if (!al || !hb || !sh || !bd) return;
+  const isAll = () => bd.hidden && !RXSHOW;
+  const lab = () => { al.textContent = isAll() ? '👀 반응 전체 보기' : '🙈 반응 전체 숨기기'; };
+  al.onclick = () => {
+    if (isAll()){ if (bd.hidden) hb.click(); if (!RXSHOW){ sh.checked = true; sh.onchange(); } }
+    else { if (!bd.hidden) hb.click(); if (RXSHOW){ sh.checked = false; sh.onchange(); } }
+    lab();
+  };
+  lab(); setInterval(lab, 500);
 })();
 setInterval(mrxPoll, 3500);
 $('room').onchange = () => {
