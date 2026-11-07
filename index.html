@@ -10480,20 +10480,12 @@ try { if (typeof TAKEDOWN_EMAIL === 'string' && /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@
     document.addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });
     setTimeout(close, 12000);
   }
-  // 관리자 화면(메인 글자 바꾸기 > 접속 안내 팝업)에서 끄면 뜨지 않습니다. 서버 설정은 chat/sitetext/gatepop, 기기에는 마지막 값을 기억해 둡니다.
+  // 기본은 안 뜹니다. 관리자 화면(메인 글자 바꾸기 > 접속 안내 팝업)에서 체크하고 저장했을 때만 뜹니다. (서버 설정: chat/sitetext/gatepop)
   function start(){
-    var KEY = 'site_gatepop_off', cached = ''; try { cached = localStorage.getItem(KEY) || ''; } catch(e){}
     var URLG = ''; try { URLG = String(FIREBASE_URL).replace(/\/+$/, '') + '/chat/sitetext/gatepop.json'; } catch(e){}
-    var fired = false;
-    function go(off){ if (fired) return; fired = true; try { if (off) localStorage.setItem(KEY, '1'); else localStorage.removeItem(KEY); } catch(e){} if (!off) show(); }
-    if (!URLG){ go(false); return; }
-    if (cached === '1'){   // 꺼 둔 기록이 있으면 바로 안 띄우고, 서버에서 다시 켰는지만 확인
-      fetch(URLG, {cache: 'no-store'}).then(function(r){ return r.ok ? r.json() : null; }).then(function(c){ if (c && (c.on === 1 || c.on === true)){ try { localStorage.removeItem(KEY); } catch(e){} } }).catch(function(){});
-      return;
-    }
-    var t = setTimeout(function(){ go(false); }, 2000);   // 서버가 느리면 2초 뒤 기본값(보임)
+    if (!URLG) return;
     fetch(URLG, {cache: 'no-store'}).then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(c){ clearTimeout(t); go(!!(c && (c.on === 0 || c.on === false))); }).catch(function(){ clearTimeout(t); go(false); });
+      .then(function(c){ if (c && (c.on === 1 || c.on === true)) show(); }).catch(function(){});
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
@@ -11298,7 +11290,7 @@ var TARGETS = [
   {k:'note',   label:'하단 ※ 안내문(스트림 설명)',      sel:'main > p.note', mode:'html'},
   {k:'about',  label:'Radiola 소개·FAQ 영역 (숨김만)', sel:'#about',    mode:'hide'},
   {k:'gate',   label:'채팅 칸 안의 "접속자가 많습니다" 안내 (숨김만)', sel:'#gate', mode:'hide'},
-  {k:'gatepop',label:'⚠ 접속 안내 팝업 — 처음 접속할 때 화면을 덮는 창 (끄려면 체크 해제)', sel:'#gatepop', mode:'hide'}
+  {k:'gatepop',label:'⚠ 접속 안내 팝업 — 처음 접속할 때 화면을 덮는 창 (기본 꺼짐 · 켜려면 체크 후 저장)', sel:'#gatepop', mode:'hide'}
 ];
 var ORIG = {};
 function load(){
@@ -11537,7 +11529,7 @@ function drawText(body){
     var w = E('div', 'padding:6px 0;border-top:1px dashed #b99a5b44');
     w.append(E('div', 'font-size:13px;font-weight:700;margin-bottom:4px', tg.label));
     var r = E('div'); r.className = 'r';
-    var on = document.createElement('input'); on.type = 'checkbox'; on.checked = !(c.on === 0 || c.on === false);
+    var on = document.createElement('input'); on.type = 'checkbox'; on.checked = tg.k === 'gatepop' ? (c.on === 1 || c.on === true) : !(c.on === 0 || c.on === false);
     var lb = E('label', 'display:flex;gap:4px;align-items:center;font-size:13px'); lb.append(on, document.createTextNode('메인에 표시'));
     r.append(lb);
     var tx = null;
