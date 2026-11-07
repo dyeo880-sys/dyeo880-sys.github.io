@@ -8008,7 +8008,7 @@ async function aiMemLoad(){ if (!DB || AIM.sum) return; try { const j = await lj
 setTimeout(aiMemLoad, 5000);
 async function aiPost(body, ms){
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms || 20000);
-  try { const r = await fetch(AI_PROXY, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=UTF-8'}, body: JSON.stringify(body), signal: ctl.signal}); if (!r.ok) throw new Error(r.status); return await r.json(); }
+  try { const r = await fetch(AI_PROXY, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=UTF-8'}, body: JSON.stringify(body), signal: ctl.signal}); if (!r.ok){ let d = ''; try { const e = await r.json(); d = e && e.error ? ' ' + String(e.error).slice(0, 120) : ''; } catch(_){} throw new Error(r.status + d); } return await r.json(); }
   finally { clearTimeout(t); }
 }
 function aiQuota(){ const today = new Date().toISOString().slice(0, 10), c = jl(AIC_K, '{}'); if (c.d !== today){ c.d = today; c.n = 0; } return c; }
