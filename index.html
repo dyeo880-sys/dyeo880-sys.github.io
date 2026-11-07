@@ -1876,12 +1876,13 @@ function renderChat(forceBottom){
   log.innerHTML = '';
   let all = chat.concat(pending);
   try { const bk = roomPath(); if (BOT && BOT.on && BOT.msgs.length && botKeyOk(bk)){ const bm = BOT.msgs.filter(m => m.r === bk); if (bm.length){ all = all.concat(bm); all.sort((a, b) => (a.ts || 0) - (b.ts || 0)); } } } catch(e){}   // 🤖 가상 손님(이 기기에서만)
+  try { const ak = roomPath(), am = (window.AIMSG || []).filter(m => m.r === ak); if (am.length){ all = all.concat(am); all.sort((a, b) => (a.ts || 0) - (b.ts || 0)); } } catch(e){}   // 🤖 이진AI 답변(이 기기에서만)
   try { if (window.NEWSM && window.NEWSM.length && $('room').value.indexOf('u:') !== 0){ all = all.concat(window.NEWSM); all.sort((a, b) => (a.ts || 0) - (b.ts || 0)); } } catch(e){}   // 📰 실시간 뉴스(이 기기에만 표시)
   all = all.filter(c => !isBlockedMsg(c) && !c.cp);
   // ⏱ 채팅·가상 손님 대사는 올라온 지 60초가 지나면 화면에서 사라짐 (뉴스 소식은 제외)
   { const cutR = (typeof nowS === 'function' ? nowS() : Date.now()) - 60000, cutB = Date.now() - 60000;
-    all = all.filter(c => c.news || !c.ts || (typeof c.ts === 'number' && c.ts >= (c.bot ? cutB : cutR)));
-    window.CHAT_OLD = all.reduce((m, c) => (c.news || !c.ts || typeof c.ts !== 'number') ? m : Math.min(m, c.bot ? c.ts : c.ts - (typeof nowS === 'function' ? nowS() - Date.now() : 0)), Infinity); }
+    all = all.filter(c => c.news || !c.ts || (typeof c.ts === 'number' && c.ts >= (c.ai ? Date.now() - 180000 : c.bot ? cutB : cutR)));
+    window.CHAT_OLD = all.reduce((m, c) => (c.news || !c.ts || typeof c.ts !== 'number') ? m : Math.min(m, c.ai ? c.ts + 120000 : c.bot ? c.ts : c.ts - (typeof nowS === 'function' ? nowS() - Date.now() : 0)), Infinity); }
   try { if (liveRoom && $('room').value === 'b:' + liveRoom.id) all = all.filter(c => !(c.k && c.k !== UID && !c.h && ctlMuted(c.k))); } catch(e){}
   if (!all.length){ log.innerHTML = '<div class="empty">첫 메시지를 남겨 보세요.</div>'; return; }
   if (all.length > 80) all = all.slice(-80);   // 오래 켜 둘수록 느려지지 않게 화면엔 최근 80개만 그림
@@ -1893,6 +1894,7 @@ function renderChat(forceBottom){
     const d = document.createElement('div'); d.className = 'm' + (isDmRoom ? ' wh' : '');
     const b = document.createElement('b'); b.textContent = (c.bot ? botFace(c.n) + ' ' : '') + ((c.h || (inLive && !c.bot && c.k && ctlMgr(c.k))) ? '👑 ' : '') + c.n;
     if (c.news){ b.title = '구글 뉴스 자동 소식 (이 기기에만 표시)'; }
+    else if (c.ai){ b.title = '이진AI — 대화를 기억하며 배우는 AI 봇 (이 기기에만 표시)'; }
     else if (c.bot){ b.title = '가상 손님 (미리 정한 대사만 하는 봇)'; }
     else if (c.k === UID || c.n === $('nick').value.trim()){ b.style.cursor = 'pointer'; b.title = '이름 바꾸기'; b.onclick = renameMe; }
     else { b.className = 'nm'; b.title = '눌러서 귓속말 · 차단'; b.onclick = ev => nameMenu(ev, c); }
@@ -1980,6 +1982,7 @@ async function sendChat(){
   const inp = $('chatin'), text = inp.value.trim();
   if (!text) return;
   if (/^\/(뜻|뜻풀이)\s+\S/.test(text)){ inp.value = ''; try { window.explainWord(text.replace(/^\/\S+\s+/, '')); } catch(e){} return; }
+  if (/^\/(기억|기억지우기)\s*$/.test(text)){ inp.value = ''; try { window.aiCmd(text); } catch(e){} return; }
   { const bm = badMsg([text, $('nick').value]); if (bm){ alert(bm); return; } }
   if (liveRoom && !isHost() && $('room').value === 'b:' + liveRoom.id && ctlMuted(UID)){ $('chatnote').textContent = '🔇 방장이 입막음해서 이 방에서는 채팅할 수 없습니다.'; return; }
   if (!$('nick').value.trim()) $('nick').value = fakeNick();
@@ -1989,6 +1992,7 @@ async function sendChat(){
   try { if (liveRoom && !isHost() && $('room').value === 'b:' + liveRoom.id && hasLink(text)) $('chatnote').textContent = '🔒 링크는 방장에게만 보입니다. 다른 손님에게는 가려져요.'; } catch(e){}
   inp.value = '';
   try { window.learnWords && window.learnWords(text); } catch(e){}
+  try { window.aiOnSend && window.aiOnSend(text); } catch(e){}
   try { window.botUserSaid && window.botUserSaid(text); } catch(e){}
   if (!DB){
     chat.push(msg); chat = chat.slice(-100);
@@ -7934,7 +7938,7 @@ $('chatin').addEventListener('input', vSuggest);
 const AI_KEY = '';   // 비워 두면 jin_ai.php 중계 파일을 씁니다 (키는 서버 파일에만 두세요 — 여기에 적으면 누구나 볼 수 있습니다)
 const AI_MODEL = 'gemini-3.8-flash';   // 안 되면 AI Studio 실행 설정에 나온 모델 이름으로 교체
 async function aiAsk(w){
-  if (!AI_KEY){ const r = await fetch(AI_PROXY + '?w=' + encodeURIComponent(w)); if (!r.ok) throw new Error(r.status); return r.json(); }
+  if (!AI_KEY){ const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 12000); try { const r = await fetch(AI_PROXY + '?w=' + encodeURIComponent(w), {signal: ctl.signal}); if (!r.ok) throw new Error(r.status); return await r.json(); } finally { clearTimeout(tm); } }
   const today = new Date().toISOString().slice(0, 10), c = jl('radio_ai_cnt', '{}');   // 한 브라우저당 하루 40번까지 (무료 한도 보호)
   if (c.d !== today){ c.d = today; c.n = 0; }
   if (c.n >= 40) throw new Error('limit');
@@ -7971,7 +7975,7 @@ async function vAuto(k){   // 자주 나오는 말을 조용히 학습: 하루 1
   if (a.d !== today){ a.d = today; a.n = 0; }
   if (a.n >= 10) return;
   vAutoBusy = true; a.n++; try { localStorage.setItem(AK, JSON.stringify(a)); } catch(e){}
-  try { await slangAsk(k, true); } catch(e){} finally { vAutoBusy = false; }
+  try { await slangAsk(k, true); } catch(e){ try { const a2 = jl(AK, '{}'); if (a2.n > 0){ a2.n--; localStorage.setItem(AK, JSON.stringify(a2)); } } catch(_){} } finally { vAutoBusy = false; }   // 실패한 호출은 하루 횟수에서 뺌
 }
 window.explainWord = async function(w){
   w = String(w || '').trim().slice(0, 20); if (!w) return;
@@ -7983,13 +7987,86 @@ window.explainWord = async function(w){
     if (!s) show('💡 「' + w + '」 뜻을 찾지 못했어요.');
     else if (s.g) show('💡 「' + w + '」 은(는) 평범한 일반 단어예요.');
     else show('💡 「' + w + '」 ' + s.m);
-  } catch(e){ show('💡 뜻풀이 서버에 연결하지 못했어요. (jin_ai.php가 올라가 있는지 확인해 주세요)'); }
+  } catch(e){ show('💡 뜻풀이 서버가 응답하지 않아요. (Worker 상태를 확인해 주세요)'); }
 };
 $('vocabask').onclick = () => {
   const inp = $('chatin'), m = /([가-힣ㄱ-ㅎA-Za-z0-9]+)\s*$/.exec(inp.value);
   const w = prompt('뜻을 알고 싶은 채팅 용어를 입력하세요.', m ? m[1] : '');
   if (w) window.explainWord(w);
 };
+// ===== 🤖 이진AI: 대화를 기억하며 배우는 AI 봇 =====
+// 부르기: 채팅창에 "@AI 안녕" 또는 "/ai 안녕". 항상 🤖로 표시되는 AI 봇이고, 답은 이 기기에서만 보입니다.
+// 배우는 방식: ①최근 대화 ②'방 기억' 요약(8번 대화마다 AI가 갱신) ③신조어 사전을 매번 함께 보내 그 방의 말투와 맥락에 맞게 답합니다.
+// 명령: /기억 (지금 기억 보기) · /기억지우기 (기억 초기화) — 귓속말 방의 글은 AI에 보내지도, 배우지도 않습니다.
+const AIM_K = 'jin_ai_mem', AIC_K = 'jin_ai_cnt', AI_DAILY = 60, AI_NAME = '🤖 이진AI';
+let AIM = jl(AIM_K, '{}');
+if (!AIM || typeof AIM !== 'object') AIM = {};
+if (!Array.isArray(AIM.log)) AIM.log = [];
+window.AIMSG = [];
+const aiMemSave = () => { try { localStorage.setItem(AIM_K, JSON.stringify(AIM)); } catch(e){} if (DB) lj('ai_mem', 'PUT', {sum: AIM.sum || '', n: AIM.n || 0, ts: Date.now()}).catch(() => {}); };
+async function aiMemLoad(){ if (!DB || AIM.sum) return; try { const j = await lj('ai_mem', 'GET'); if (j && j.sum){ AIM.sum = String(j.sum).slice(0, 1200); AIM.n = Math.max(AIM.n || 0, +j.n || 0); try { localStorage.setItem(AIM_K, JSON.stringify(AIM)); } catch(e){} } } catch(e){} }
+setTimeout(aiMemLoad, 5000);
+async function aiPost(body, ms){
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms || 20000);
+  try { const r = await fetch(AI_PROXY, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=UTF-8'}, body: JSON.stringify(body), signal: ctl.signal}); if (!r.ok) throw new Error(r.status); return await r.json(); }
+  finally { clearTimeout(t); }
+}
+function aiQuota(){ const today = new Date().toISOString().slice(0, 10), c = jl(AIC_K, '{}'); if (c.d !== today){ c.d = today; c.n = 0; } return c; }
+const aiQSave = c => { try { localStorage.setItem(AIC_K, JSON.stringify(c)); } catch(e){} };
+function aiShow(text){ const m = {n: AI_NAME, t: String(text), ts: Date.now(), ai: 1, r: roomPath()}; window.AIMSG.push(m); window.AIMSG = window.AIMSG.slice(-20); try { renderChat(true); } catch(e){} return m; }
+function aiGone(m){ window.AIMSG = window.AIMSG.filter(x => x !== m); }
+function aiRecent(){
+  const me = $('nick').value.trim();
+  return (chat || []).slice(-12).filter(c => c && c.t && !/https?:\/\//i.test(c.t)).map(c => String(c.n || '').slice(0, 12) + (c.k === UID || c.n === me ? '(나)' : '') + ': ' + String(c.t).slice(0, 120));
+}
+function aiSlangCtx(q){
+  const seen = new Set(), out = [];
+  (aiRecent().join(' ') + ' ' + q).toLowerCase().split(/[^가-힣ㄱ-ㅎa-z0-9]+/).forEach(w => { if (w && !seen.has(w) && SLANG[w] && SLANG[w].m && out.length < 12){ seen.add(w); out.push({w, m: SLANG[w].m.slice(0, 80)}); } });
+  return out;
+}
+const aiTop = () => Object.entries(VOC).sort((a, b) => b[1].c - a[1].c).slice(0, 12).map(x => x[0]);
+async function aiSummarize(){
+  try { const j = await aiPost({mode: 'sum', memory: AIM.sum || '', log: AIM.log.slice(-16), words: aiTop()}, 30000); const s = String((j && j.memory) || '').trim().slice(0, 1200); if (s){ AIM.sum = s; aiMemSave(); } } catch(e){}
+}
+const AI_TRIG = /^\s*(?:\/ai|@ai|@이진ai)\s*[:,]?\s+(\S[\s\S]*)$/i;
+window.aiOnSend = async function(text){
+  const m = AI_TRIG.exec(text); if (!m) return;
+  if ($('room').value.indexOf('u:') === 0){ aiShow('귓속말 방에서는 AI를 부를 수 없어요. (개인 대화는 AI에게 보내지 않아요)'); return; }
+  const q = m[1].trim().slice(0, 300);
+  let qt = aiQuota();
+  if (qt.n >= AI_DAILY){ aiShow('오늘은 AI 답변 한도(' + AI_DAILY + '번)를 다 썼어요. 내일 다시 불러 주세요.'); return; }
+  qt.n++; aiQSave(qt);
+  const ph = aiShow('생각 중… 💭');
+  try {
+    const j = await aiPost({mode: 'chat', msg: q, nick: $('nick').value.trim().slice(0, 12), recent: aiRecent(), memory: AIM.sum || '', slang: aiSlangCtx(q), examples: AIM.log.slice(-4)});
+    const a = String((j && j.a) || '').trim().slice(0, 300);
+    if (!a) throw new Error(j && j.error ? j.error : '빈 답');
+    aiGone(ph); aiShow(a);
+    AIM.log.push({u: q.slice(0, 120), a: a.slice(0, 200)}); AIM.log = AIM.log.slice(-30); AIM.n = (AIM.n || 0) + 1; AIM.ts = Date.now();
+    aiMemSave();
+    if (AIM.n % 8 === 0) aiSummarize();
+  } catch(e){
+    qt = aiQuota(); qt.n = Math.max(0, qt.n - 1); aiQSave(qt);   // 실패한 호출은 하루 횟수에서 빼 줌
+    aiGone(ph); aiShow('답을 받지 못했어요. (' + (e && e.name === 'AbortError' ? '시간 초과' : (e && e.message) || '오류') + ')');
+  }
+};
+window.aiCmd = function(text){
+  if (/기억지우기/.test(text)){ AIM = {log: []}; aiMemSave(); aiShow('📒 기억을 모두 지웠어요.'); return; }
+  aiShow('📒 대화 ' + (AIM.n || 0) + '번 · ' + (AIM.sum ? '방 기억: ' + AIM.sum : '아직 정리된 기억이 없어요. (8번 대화하면 정리해요)'));
+};
+// 받은 글도 배우기: 다른 사람이 쓴 최근 글의 단어를 세어 자동완성·신조어 사전에 반영 (귓속말 방 제외, 내 글은 보낼 때 이미 셈)
+const AIH = new Set();
+function aiHarvest(){
+  const rp = roomPath(); if (rp.indexOf('dm_') === 0 || !window.learnWords) return;
+  const me = $('nick').value.trim(), now = Date.now();
+  (chat || []).forEach(c => {
+    if (!c || !c.t || c.k === UID || c.n === me || !c.ts || now - c.ts > 120000) return;
+    const k = rp + '|' + c.ts + '|' + (c.k || c.n) + '|' + c.t;
+    if (AIH.has(k)) return; AIH.add(k); if (AIH.size > 1500) AIH.clear();
+    window.learnWords(String(c.t));
+  });
+}
+{ const _rc = renderChat; renderChat = function(){ const r = _rc.apply(this, arguments); try { aiHarvest(); } catch(e){} return r; }; }
 setTimeout(vSharedLoad, 4000);
 setInterval(() => { if (!document.hidden) vSharedLoad(); }, 600000);
 
