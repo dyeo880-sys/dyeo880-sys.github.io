@@ -2978,7 +2978,7 @@ function mrxFloat(k, name, force, txt, uid){
   if (!RXSHOW && !force) return;
   let ly = document.getElementById('mrxfloat');
   if (!ly){ ly = document.createElement('div'); ly.id = 'mrxfloat'; ly.setAttribute('aria-hidden', 'true'); ly.style.cssText = 'position:fixed;left:0;right:0;bottom:70px;height:0;pointer-events:none;z-index:85'; document.body.append(ly); }
-  if (ly.children.length > 40) return;
+  if (ly.children.length > 20) return;
   const e = k === 'txt' ? ['txt', String(txt || '').slice(0, 14), ''] : (MRX_MAP[k] || [k, k, '']);
   const d = document.createElement('div'); d.className = 'rxf'; d.style.left = (6 + Math.random() * 84) + '%';
   const a = document.createElement('span'); a.textContent = e[1]; if (k === 'txt'){ a.style.cssText = 'font-size:24px;font-weight:800;color:#ffe9a8;text-shadow:0 2px 6px #000,0 0 10px #000;white-space:nowrap'; }
@@ -3038,7 +3038,7 @@ function mrxPress(k, txt){
   inp.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); if (send(inp.value)) inp.value = ''; } });
   draw(); row.append(box);
 })();
-setInterval(mrxPoll, 2500);
+setInterval(mrxPoll, 3500);
 $('room').onchange = () => {
   const v = $('room').value, isDm = v.indexOf('u:') === 0;
   if (isDm){ delete unread[v.slice(2)]; peerSig = ''; renderRooms(v); }
@@ -10575,6 +10575,8 @@ loadAgg(); stCheck(true);
 #fxbtn{position:fixed;right:12px;bottom:12px;z-index:99997;width:40px;height:40px;border-radius:50%;border:1px solid #b99a5b;background:#3b2417cc;color:#ffcf7a;font-size:18px;line-height:1;cursor:pointer;padding:0}
 #fxbtn.off{opacity:.55;filter:grayscale(1)}
 body:not(.fxon) #fxsky,body:not(.fxon) #fxb,body:not(.fxon) #fxf{display:none}
+body:not(.fxon) #neo-tod,body:not(.fxon) #neo-sky,body:not(.fxon) #neo-moon{display:none!important}
+body:not(.fxon) .scale::after,body:not(.fxon) .neo-pound{animation:none!important}
 </style>
 <script>
 (function(){
@@ -10582,7 +10584,7 @@ body:not(.fxon) #fxsky,body:not(.fxon) #fxb,body:not(.fxon) #fxf{display:none}
   // 미리보기: 주소 뒤에 ?fxt=23&fxm=10&fxw=rain  (fxt=시각 0~23, fxm=월, fxw=clear|cloud|fog|rain|snow|storm)
   var R = Math.random, Q = new URLSearchParams(location.search), g = function(i){ return document.getElementById(i); };
   var saved = null; try { saved = localStorage.getItem('fxon'); } catch (e) {}
-  var low = (navigator.deviceMemory && navigator.deviceMemory <= 2) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2);
+  var low = (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);   // 휴대폰·저사양은 처음에 꺼진 상태(✨ 로 켤 수 있음)
   var calm = matchMedia('(prefers-reduced-motion:reduce)').matches;
   var on = saved === null ? !(low || calm) : saved === '1';   // 저사양·모션 줄이기 기기는 처음에 꺼진 상태
 
@@ -10590,7 +10592,7 @@ body:not(.fxon) #fxsky,body:not(.fxon) #fxb,body:not(.fxon) #fxf{display:none}
   sky.innerHTML = '<div id="fxorb"></div><div id="fxwx"></div>';
   var cb = document.createElement('canvas'); cb.id = 'fxb';
   var cf = document.createElement('canvas'); cf.id = 'fxf';
-  var btn = document.createElement('button'); btn.id = 'fxbtn'; btn.type = 'button'; btn.textContent = '✨'; btn.title = '배경 효과 켜기/끄기';
+  var btn = document.createElement('button'); btn.id = 'fxbtn'; btn.type = 'button'; btn.textContent = '✨'; btn.title = '배경 효과 켜기/끄기 (끄면 훨씬 가벼워집니다)';
   document.body.appendChild(sky); document.body.appendChild(cb); document.body.appendChild(cf); document.body.appendChild(btn);
   var xb = cb.getContext('2d'), xf = cf.getContext('2d'), D = 1, W = 0, Hh = 0;
   function size(){ W = cb.width = cf.width = innerWidth * D | 0; Hh = cb.height = cf.height = innerHeight * D | 0; }
