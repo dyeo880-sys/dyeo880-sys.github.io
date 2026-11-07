@@ -1662,14 +1662,15 @@ function chatLinkNodes(text, mode){   // mode: 'open'(눌러서 열기) | 'own'(
   return frag;
 }
 // ===== 손님 프로필 사진: 브라우저에서 96×96으로 줄여 올림(약 3~8KB) · 닉네임 옆 작은 동그라미 =====
-var AV = {map: {}, req: {}, tm: 0};
+var AV = {map: {}, req: {}, ts: {}, tm: 0};
 const AV_TTL = 2 * 60 * 60 * 1000;   // 올린 사진·아이콘은 2시간 뒤(또는 내가 나가면) 서버에서 자동으로 지워짐
 const AV_OK = /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/;
 function avRoomOff(){ try { const c = CTL.map && CTL.map._av; return !!(liveRoom && c && c.off); } catch(e){ return false; } }
 function avHidden(k){ try { if (avRoomOff()) return true; const c = CTL.map && CTL.map[ctlKey(k)]; return !!(liveRoom && c && c.np); } catch(e){ return false; } }
 function avLoad(k){
-  if (!DB || !k || (k in AV.map) || AV.req[k]) return;
-  AV.req[k] = 1;
+  if (!DB || !k || AV.req[k]) return;
+  if ((k in AV.map) && !(AV.map[k] === 0 && k !== UID && Date.now() - (AV.ts[k] || 0) > 15000)) return;   // 사진 없음(0)으로 기억해 둔 사람은 15초 뒤 다시 확인
+  AV.req[k] = 1; AV.ts[k] = Date.now();
   fetch(`${DB}/chat/av_${encodeURIComponent(k)}.json`).then(r => r.ok ? r.json() : null)
     .then(d => { if (d && typeof d === 'object' && !d.ban && d.ts && Date.now() - d.ts > AV_TTL){ try { fetch(`${DB}/chat/av_${encodeURIComponent(k)}.json`, {method: 'DELETE'}).catch(() => {}); } catch(e){} d = 0; } AV.map[k] = (d && typeof d === 'object') ? d : 0; }).catch(() => { AV.map[k] = 0; })
     .then(() => { delete AV.req[k]; try { avBtn(); } catch(e){} clearTimeout(AV.tm); AV.tm = setTimeout(() => { try { renderChat(); } catch(e){} }, 150); });
