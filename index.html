@@ -2429,7 +2429,8 @@ const BOT_RULES_MORE2 = [
   [/모기|바퀴벌레|벌레|날파리|해충|개미/, ['으악 벌레 얘기만 해도 소름이에요 ㅠㅠ','모기는 왜 나만 물까요 ㅋㅋ','모기향 챙기세요','벌레 나오면 비명부터 나와요','조심하세요 ㅎㅎ']],
   [/공무원|수험생|고시|재수|편입|공시|임용|수험/, ['수험 생활 정말 대단하세요 💪','힘들 땐 잠깐 쉬어가세요','합격하는 날까지 응원할게요 🍀','공부할 때 잔잔한 노래가 도움 돼요 🎧','꼭 좋은 결과 있을 거예요']],
   [/결혼식|청첩장|축의금|웨딩|신부|예식|결혼 ?준비/, ['결혼 준비는 정말 일이 많대요 ㅎㅎ','축하드려요 행복하세요 💐','축의금 고민은 언제나 어렵죠','웨딩 사진 보고 싶어요','결혼식엔 눈물도 나고 웃음도 나요','평생 행복하세요 🎉']],
-  [/하이루|방가|ㅂㅇ|바이바이|빠잇|ㅂㅂ|잘가|이만 ?(갈|가볼|나가|쉴)/, ['방가방가 ㅎㅎ','하이루~ 🙌','바이바이 또 놀러 와요','안녕~ 좋은 하루 보내세요','또 봐요~ 😊','조심히 가세요~']],
+  [/하이루|방가|방갑/, ['방가방가 ㅎㅎ','하이루~ 🙌','안녕하세요~ 반가워요 😊','어서오세요~ 방가워요 ㅎㅎ']],
+  [/ㅂㅇ|바이바이|빠잇|ㅂㅂ|잘가|이만 ?(갈|가볼|나가|쉴)/, ['바이바이 또 놀러 와요','안녕히 가세요~ 좋은 하루 보내세요','또 봐요~ 😊','조심히 가세요~']],
   [/너 ?(귀엽|똑똑|웃겨|착해|재밌)|말 ?잘 ?하네/, ['칭찬 감사해요 ㅎㅎ','부끄럽네요 😊','저는 그냥 지나가는 손님인걸요 ㅋㅋ','그렇게 봐주시니 고마워요','오늘 기분이 좋아지네요 ㅎㅎ']],
   [/화나|열받|분노|빡치|분통|짜증나/, ['화나는 일 있으셨군요 토닥토닥','숨 한 번 크게 쉬어봐요 🌿','털어놓으면 조금 풀려요','그럴 땐 좋아하는 노래 크게 들어요 🎧','무슨 일인지 천천히 말해주세요','화낼 만하셨겠어요']],
   [/서운|억울|섭섭|배신|외면/, ['서운하셨겠어요 마음 이해돼요','말 못 한 마음이 쌓였나 봐요','시간이 지나면 조금 풀릴 거예요','여기선 편하게 말씀하세요 😊','토닥토닥 괜찮아요']],
@@ -3014,7 +3015,11 @@ function botScanChat(key, nw){
     const c = hum[i]; if (nw - c.ts > 55000) continue;
     const id = 'r|' + key + '|' + (c.k || c.u || c.n) + '|' + c.ts;
     if (BOT.rd[id]) continue; BOT.rd[id] = c.ts;
-    if (i > 0 && c.ts - hum[i - 1].ts < 6000) continue;   // 사람들이 연달아 말하면 봇은 끼어들지 않음
+    if (i > 0 && c.ts - hum[i - 1].ts < 6000){
+      if (!botIsGreet(c.t)) continue;   // 사람들이 연달아 말하면 봇은 끼어들지 않음 (단, 인사는 예외: 항상 대답함)
+      let gc = 0; for (let j = i - 1; j >= 0 && c.ts - hum[j].ts < 20000; j--){ if (botIsGreet(hum[j].t)) gc++; }
+      if (gc >= 3) continue;   // 20초 안에 인사가 4번째부터는 도배로 보고 넘어감
+    }
     const base = Math.min(Math.max(c.ts, nw - 30000), nw), who = botRoster(key, Math.floor(base / BOT_BLK)), un = String(c.n || '').trim().slice(0, 12) || '손님';
     const ev = botSim('rep|' + id, base, run => { BOT.who = who.slice(); botReplyCore(c.t, un, key); run(base + 50000); });
     ev.forEach((v, j) => botQueue(key, id + '#' + j, v, nw));
@@ -3084,9 +3089,21 @@ window.botWelcome = (name, jk) => {
 (function(){ try { const sc = document.createElement('script'); sc.src = 'bot_more.js?v=1'; sc.async = true; sc.onload = sc.onerror = function(){ BOT.ext++; }; document.head.appendChild(sc); } catch(e){} })();   // 🤖 확장팩(대사·대본·이름) 자동 로드
 (function(){ try { const sc = document.createElement('script'); sc.src = 'bot_love.js?v=1'; sc.async = true; sc.onload = sc.onerror = function(){ BOT.ext++; }; document.head.appendChild(sc); } catch(e){} })();   // 💕 사랑·연애·이별 확장팩 자동 로드
 const BOT_CALLED = ['네~ 저 불렀어요? ㅎㅎ','네 {u}님 말씀하세요~','저요? 네 여기 있어요 😊','부르셨어요? 반가워요 ㅎㅎ','네네 듣고 있어요~','{u}님 저 불렀죠? 네~','네 {u}님 ㅎㅎ 왜요?','저 여기 있어요~ 무슨 일이세요?','오 저를 불러주셨네요 반가워요 😊','네~ 말씀하세요 {u}님','헤헤 저 불렀어요?','불러주셔서 고마워요 ㅎㅎ','네 {u}님 안녕하세요~','저 여기요 여기~ 🙋'];
+// 👋 인사 전용 처리: "하이 / 안녕하세요 / 방가워요" 같은 인사에는 가상 손님이 반드시 인사로 답함
+//    (별난 손님이 끼어들거나, '안녕히 가세요' 같은 작별 인사로 답하거나, 아예 답이 없는 일이 없게)
+const BOT_GREET_RE = /하이|안녕|방가|방갑|반가|반갑|ㅎㅇ|헬로|hello|\bhi+\b|\bhey\b|처음 ?뵙|잘 ?부탁/i;
+const BOT_BYE_RE = /안녕히|잘 ?자|굿나잇|갈게|가볼게|바이|ㅂㅇ|ㅂㅂ|빠잇|잘 ?가|이만 ?(갈|가볼|나가|쉴)|나갈게|들어갈게/;
+const botIsGreet = t => typeof t === 'string' && t.length <= 40 && BOT_GREET_RE.test(t) && !BOT_BYE_RE.test(t) && !BOT_CRISIS_RULE[0].test(t) && !BOT_SOLEMN_RULE[0].test(t) && !BOT_RULES[0][0].test(t);
+function botHelloPool(un){
+  const base = ['안녕하세요! 어서 오세요 ㅎㅎ','반가워요~ 🙌','안녕하세요~ 편하게 들으세요','안녕하세요 반가워요 ㅎㅎ','하이~ 반가워요 👋','오 안녕하세요~ 어서 오세요 😊','방가방가 ㅎㅎ','하이루~ 🙌','안녕하세요 오늘 기분은 어떠세요?','어서와요 오늘 분위기 좋아요 ☺️','반갑습니다~ 같이 들어요 🎶','안녕하세요 {n}님 ㅎㅎ','{n}님 안녕하세요~ 반가워요!','{n}님 방가방가 🙌','하이~ {n}님 👋','{n}님 어서오세요~ 편하게 계세요 😊'];
+  const all = base.concat(typeof BOT_WELCOME !== 'undefined' ? BOT_WELCOME : []), nm = (un && un !== '손님') ? un : '', out = [];
+  all.forEach(l => { if (l.indexOf('{n}') >= 0){ if (!nm) return; l = l.replace(/\{n\}/g, nm); } if (botOk(l) && out.indexOf(l) < 0) out.push(l); });
+  return out.length ? out : base.filter(l => l.indexOf('{n}') < 0);
+}
 function botReplyCore(text, uname, key){   // 사람 글에 가상 손님이 답함 (시뮬레이션 안에서만 호출됨)
   const fl = botLang(text); if (fl && BOT_FX[fl]){ botForeignReply(text, fl, key); return; }
-  if (botPersonaReply(text, key)) return;
+  const _greet = botIsGreet(text);
+  if (!_greet && botPersonaReply(text, key)) return;   // 인사에는 별난 손님이 끼어들지 않음
   // 📣 손님 이름을 부르면(예: "은행나무님") 그 손님이 직접 대답함
   let _tg = null, _pure = false;
   try {
@@ -3096,7 +3113,7 @@ function botReplyCore(text, uname, key){   // 사람 글에 가상 손님이 답
     else { const c2 = BOT_NAMES.filter(n => n.length >= 3 && !BOT.who.includes(n) && _hit(n, true)).sort((a, b) => b.length - a.length); if (c2.length){ _tg = c2[0]; BOT.who.push(_tg); } }
     if (_tg) _pure = _t.replace(_tg, '').replace(/[님씨아야\s?!~.,ㅎㅋ]/g, '').length === 0;
   } catch(e){}
-  let pool = _pure ? BOT_CALLED : null; if (!pool) for (const r of BOT_RULES){ if (r[0].test(text)){ pool = r[1]; break; } }
+  let pool = _pure ? BOT_CALLED : null; if (!pool && _greet) pool = botHelloPool(uname); if (!pool) for (const r of BOT_RULES){ if (r[0].test(text)){ pool = r[1]; break; } }
   if (!pool){ if (!_tg && Math.random() < 0.35) return; pool = BOT_FALLBACK; }
   BOT.q = []; BOT.next = Date.now() + 10000;
   const okPool = pool.filter(botOk);
@@ -3104,15 +3121,15 @@ function botReplyCore(text, uname, key){   // 사람 글에 가상 손님이 답
   line = line.replace(/\{u\}/g, uname);
   if (!_tg && !BOT_SERIOUS.has(pool) && Math.random() < 0.3){ if (uname !== '손님' && line.indexOf(uname) < 0) line = uname + '님, ' + line; }   // 🔔 가끔 닉네임을 불러줌
   // 읽고 → 생각하고 → 타자 치는 시간: 사용자 글 길이·답 길이에 비례, 가끔은 한참 뒤에 답함
-  let d1 = 2500 + Math.min(text.length, 40) * 60 + line.length * 120 + Math.random() * 5500;
-  if (Math.random() < 0.2) d1 += 5000 + Math.random() * 8000;
+  let d1 = _greet ? 1500 + line.length * 40 + Math.random() * 3000 : 2500 + Math.min(text.length, 40) * 60 + line.length * 120 + Math.random() * 5500;   // 인사는 빨리 답함
+  if (!_greet && Math.random() < 0.2) d1 += 5000 + Math.random() * 8000;
   BOT.next = Date.now() + d1 + 6000;   // 답하기 전에 다른 손님이 끼어들지 않게
   setTimeout(() => { botSay(w, line, key); }, d1);
   if (!_tg && pool !== BOT_RULES[0][1] && !BOT_SERIOUS.has(pool) && Math.random() < 0.3){   // 다른 손님이 거의 동시에 같이 답함
     const wb = botWho([w]), lb = botRand(pool.length > 1 ? pool.filter(x => x !== line) : BOT_ECHO);
     setTimeout(() => { botSay(wb, lb, key); }, d1 + 300 + Math.random() * 1500);
   }
-  if (pool !== BOT_FALLBACK && pool !== BOT_RULES[0][1] && !BOT_SERIOUS.has(pool) && Math.random() < 0.4){
+  if (!_greet && pool !== BOT_FALLBACK && pool !== BOT_RULES[0][1] && !BOT_SERIOUS.has(pool) && Math.random() < 0.4){
     const w2 = botWho([w]), l2 = botRand(['ㅋㅋ 저도요','맞아요~ 😊','ㅎㅎ 동감이에요','저도 그렇게 생각해요','오 공감이에요']);
     setTimeout(() => { botSay(w2, l2, key); }, d1 + 3500 + Math.random() * 9000);
   }
