@@ -3159,6 +3159,74 @@ function botAdmShow(){
   if (!a && !BOT.on){ BOT.on = true; try { localStorage.removeItem('radio_bots'); } catch(e){} botBtn(); }   // 관리자가 아니면 항상 켜짐
 }
 botAdmShow(); setInterval(function(){ if (!document.hidden) botAdmShow(); }, 3000);
+// 🗣️ 관리자 전용: 가상 손님 문구를 직접 추가/삭제 (서버에 저장되어 모든 접속자의 봇에게 적용됨)
+const BOT_CU = {rules: [], w: [], w2: [], h: [], list: []};
+const botCuEsc = x => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const botCuH = x => String(x).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+async function botCuLoad(){
+  let j = null;
+  try { j = await lj('botphrases', 'GET'); } catch(e){ return false; }
+  const list = Object.entries(j || {}).map(([id, v]) => ({id, t: String((v && v.t) || 'r'), k: String((v && v.k) || '').slice(0, 300), l: (Array.isArray(v && v.l) ? v.l : Object.values((v && v.l) || {})).map(x => String(x).slice(0, 200).trim()).filter(Boolean), ts: +(v && v.ts) || 0})).filter(x => x.l.length).sort((a, b) => a.ts - b.ts);
+  BOT_CU.list = list;
+  BOT_CU.rules.forEach(r => { const i = BOT_RULES.indexOf(r); if (i >= 0) BOT_RULES.splice(i, 1); });
+  [[BOT_WELCOME, 'w'], [BOT_WELCOME2, 'w2'], [BOT_HELLO_MORE, 'h']].forEach(([arr, k]) => { BOT_CU[k].forEach(x => { const i = arr.lastIndexOf(x); if (i >= 0) arr.splice(i, 1); }); BOT_CU[k] = []; });
+  BOT_CU.rules = [];
+  list.forEach(x => {
+    if (x.t === 'w'){ x.l.forEach(l => { BOT_WELCOME.push(l); BOT_CU.w.push(l); }); }
+    else if (x.t === 'h'){ x.l.forEach(l => { BOT_HELLO_MORE.push(l); BOT_CU.h.push(l); }); }
+    else {
+      const ks = x.k.split(/[,，\n]/).map(q => q.trim()).filter(Boolean); if (!ks.length) return;
+      try { const r = [new RegExp(ks.map(botCuEsc).join('|')), x.l.slice()]; BOT_RULES.splice(3, 0, r); BOT_CU.rules.push(r); } catch(e){}
+    }
+  });
+  return true;
+}
+function botCuOpen(){
+  let m = document.getElementById('botcumodal'); if (m){ m.remove(); }
+  m = document.createElement('div'); m.id = 'botcumodal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#000a;display:flex;align-items:center;justify-content:center;padding:12px';
+  m.innerHTML = '<div style="background:var(--panel,#2a1a10);color:var(--ink,#f3e6cf);border:1px solid var(--brass,#b99a5b);border-radius:10px;width:min(620px,100%);max-height:92vh;overflow-y:auto;padding:14px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><strong>🗣️ 가상 손님 문구 추가 (관리자)</strong><button type="button" id="bcuclose" class="addhome" style="margin:0;padding:4px 10px">닫기</button></div>'
+    + '<div class="chatnote" style="margin:0 0 8px">여기서 넣은 문구는 서버에 저장되어 모든 접속자 화면의 가상 손님이 사용합니다. 이름 자리는 <b>{n}</b>(입장·인사) / <b>{u}</b>(말한 사람)로 쓰면 이름으로 바뀝니다.</div>'
+    + '<select id="bcutype" style="width:100%;margin-bottom:6px;background:#1a0f08;color:inherit;border:1px solid #b99a5b88;border-radius:6px;padding:7px"><option value="r">① 손님이 이런 말을 하면 → 이렇게 대답 (예: 사는 지역)</option><option value="w">② 손님이 들어오면 → 환영 인사</option><option value="h">③ 손님이 인사하면 → 인사 대답</option></select>'
+    + '<input id="bcukey" placeholder="키워드 (쉼표로 구분) 예: 어디 사,사는 곳,어디세요" style="width:100%;margin-bottom:6px;background:#1a0f08;color:inherit;border:1px solid #b99a5b88;border-radius:6px;padding:7px;box-sizing:border-box">'
+    + '<textarea id="bcutxt" rows="7" placeholder="봇이 할 말을 한 줄에 하나씩 적으세요 (여러 줄 중 하나가 랜덤으로 나옵니다)&#10;예)&#10;저는 부산 해운대 쪽이에요 ㅎㅎ&#10;경기 수원이요! {u}님은요?&#10;비밀이에요 ㅋㅋ 맞춰보세요" style="width:100%;background:#1a0f08;color:inherit;border:1px solid #b99a5b88;border-radius:6px;padding:7px;box-sizing:border-box;font-family:inherit"></textarea>'
+    + '<div style="margin-top:6px;display:flex;gap:8px;align-items:center"><button type="button" id="bcuadd" class="addhome" style="margin:0;padding:6px 14px">➕ 추가</button><span id="bcumsg" class="chatnote" style="margin:0"></span></div>'
+    + '<hr style="border:0;border-top:1px solid #b99a5b44;margin:12px 0 8px"><strong style="font-size:13px">추가한 문구 목록</strong><div id="bculist" style="margin-top:6px;font-size:13px"></div></div>';
+  document.body.appendChild(m);
+  const $q = id => document.getElementById(id), msg = t => { $q('bcumsg').textContent = t; };
+  const typeName = {r: '대답', w: '입장 환영', h: '인사 대답'};
+  const draw = () => {
+    const box = $q('bculist'); if (!box) return;
+    if (!BOT_CU.list.length){ box.innerHTML = '<div style="opacity:.6">아직 추가한 문구가 없습니다.</div>'; return; }
+    box.innerHTML = BOT_CU.list.map(x => '<div style="border:1px solid #b99a5b44;border-radius:6px;padding:6px 8px;margin-bottom:6px"><div style="display:flex;justify-content:space-between;gap:8px"><b style="color:var(--amber,#e0a040)">[' + typeName[x.t] + ']' + (x.t === 'r' ? ' ' + botCuH(x.k) : '') + '</b><button type="button" data-id="' + botCuH(x.id) + '" class="addhome bcudel" style="margin:0;padding:2px 8px">삭제</button></div><div style="opacity:.85;margin-top:3px;white-space:pre-wrap">' + botCuH(x.l.join('\n')) + '</div></div>').join('');
+    box.querySelectorAll('.bcudel').forEach(b => { b.onclick = async () => { if (!confirm('이 문구 묶음을 지울까요?')) return; try { await lj('botphrases/' + b.dataset.id, 'DELETE'); } catch(e){ msg('지우지 못했습니다. 인터넷 연결을 확인하세요.'); return; } await botCuLoad(); draw(); msg('지웠습니다.'); }; });
+  };
+  const sync = () => { $q('bcukey').style.display = $q('bcutype').value === 'r' ? '' : 'none'; };
+  $q('bcutype').onchange = sync; sync();
+  $q('bcuclose').onclick = () => m.remove();
+  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+  $q('bcuadd').onclick = async () => {
+    const t = $q('bcutype').value, k = $q('bcukey').value.trim(), l = $q('bcutxt').value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 60);
+    if (!l.length){ msg('봇이 할 말을 한 줄 이상 적어 주세요.'); return; }
+    if (t === 'r' && !k.replace(/[,，\s]/g, '')){ msg('키워드를 적어 주세요. (예: 어디 사,사는 곳)'); return; }
+    const id = 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1000);
+    try { await lj('botphrases/' + id, 'PUT', {t, k: t === 'r' ? k : '', l, ts: Date.now()}); }
+    catch(e){ msg('서버에 저장하지 못했습니다. 인터넷 연결을 확인하세요.'); return; }
+    await botCuLoad(); draw(); $q('bcutxt').value = ''; if (t === 'r') $q('bcukey').value = '';
+    msg('추가했습니다. 모든 접속자의 가상 손님이 곧 사용합니다. (' + l.length + '줄)');
+  };
+  botCuLoad().then(draw);
+}
+(function(){
+  const b = document.getElementById('botbtn'); if (!b || document.getElementById('botphbtn')) return;
+  const p = document.createElement('button'); p.id = 'botphbtn'; p.type = 'button'; p.textContent = '🗣️ 봇 문구'; p.title = '가상 손님 문구 추가 (관리자 전용)';
+  p.style.cssText = 'background:none;border:0;box-shadow:none;opacity:.6;font-size:11px;padding:2px 4px;cursor:pointer;color:inherit';
+  p.onclick = botCuOpen; b.insertAdjacentElement('afterend', p);
+  const sh = () => { let a = false; try { a = !!isAdmin || sessionStorage.getItem('board_admin') === '1' || sessionStorage.getItem('radio_admin') === '1'; } catch(e){} p.hidden = !a; };
+  sh(); setInterval(sh, 3000);
+})();
+setTimeout(botCuLoad, 3000); setInterval(botCuLoad, 300000);   // 접속자 화면에서도 5분마다 새 문구를 받아 적용
 // 가상 손님 수 표기: 5600~6400명(약 6000명) 사이에서 조금씩 오르내림 (실제 접속자 수와는 무관한 가상 숫자)
 function botCountTick(){   // 시간대별 접속자 수: 새벽엔 적고 저녁에 가장 많음. 서버 시각으로 계산해서 모든 접속자에게 같은 숫자가 보임
   if (!BOT.on) return;
