@@ -1669,7 +1669,7 @@ function avRoomOff(){ try { const c = CTL.map && CTL.map._av; return !!(liveRoom
 function avHidden(k){ try { if (avRoomOff()) return true; const c = CTL.map && CTL.map[ctlKey(k)]; return !!(liveRoom && c && c.np); } catch(e){ return false; } }
 function avLoad(k){
   if (!DB || !k || AV.req[k]) return;
-  if ((k in AV.map) && !(AV.map[k] === 0 && k !== UID && Date.now() - (AV.ts[k] || 0) > 15000)) return;   // 사진 없음(0)으로 기억해 둔 사람은 15초 뒤 다시 확인
+  if ((k in AV.map) && !(AV.map[k] === 0 && k !== UID && Date.now() - (AV.ts[k] || 0) > 60000)) return;   // 사진 없음(0)으로 기억해 둔 사람은 15초 뒤 다시 확인
   AV.req[k] = 1; AV.ts[k] = Date.now();
   fetch(`${DB}/chat/av_${encodeURIComponent(k)}.json`).then(r => r.ok ? r.json() : null)
     .then(d => { if (d && typeof d === 'object' && !d.ban && d.ts && Date.now() - d.ts > AV_TTL){ try { fetch(`${DB}/chat/av_${encodeURIComponent(k)}.json`, {method: 'DELETE'}).catch(() => {}); } catch(e){} d = 0; } AV.map[k] = (d && typeof d === 'object') ? d : 0; }).catch(() => { AV.map[k] = 0; })
@@ -3393,7 +3393,7 @@ function mrxPress(k, txt){
   };
   lab(); setInterval(lab, 500);
 })();
-setInterval(mrxPoll, 3500);
+setInterval(mrxPoll, 6000);   // [사용량 절감] 3.5초→6초
 $('room').onchange = () => {
   const v = $('room').value, isDm = v.indexOf('u:') === 0;
   if (isDm){ delete unread[v.slice(2)]; peerSig = ''; renderRooms(v); }
@@ -3496,7 +3496,8 @@ async function pwHash(pw){
   const bits = await crypto.subtle.deriveBits({name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(ADMIN_SALT), iterations: 200000}, key, 256);
   return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
-const PRES_TTL = 45000, BEAT = 15000;
+const PRES_TTL = 75000, BEAT = 30000;   // [사용량 절감] 하트비트 15초→30초
+let PRES_IDX = true, presCleanAt = 0;   // 접속자 목록을 '최근 접속자만' 받는 방식(규칙에 ts 인덱스 필요, 없으면 자동으로 예전 방식)
 const myId = Math.random().toString(36).slice(2, 10);
 let isAdmin = false, joinTs = 0, gateBusy = false;
 const presUrl = id => `${DB}/presence/${id}.json`;
@@ -3506,16 +3507,33 @@ async function presenceTouch(){
   const w = await fetch(presUrl(myId), {method: 'PUT', body: JSON.stringify({ts: sv, j: joinTs || sv, a: isAdmin, n: ($('nick').value || '').trim().slice(0, 12), k: UID, ip: (window.IPID || '')})});
   if (!w.ok) throw new Error(w.status);
   const t0 = Date.now();
-  const r = await fetch(`${DB}/presence.json`);
-  if (!r.ok) throw new Error(r.status);
-  const txt = await r.text(), dt = Date.now() - t0;
-  let all = {}; try { all = JSON.parse(txt) || {}; } catch(e){ throw new Error('presence'); }
+  const sk = (typeof SKEW === 'number' ? SKEW : 0);
+  let r = null, txt = '', all = {};
+  if (PRES_IDX){
+    r = await fetch(`${DB}/presence.json?orderBy="ts"&startAt=${Math.floor(Date.now() + sk - PRES_TTL - 5000)}`);
+    if (r.ok){ txt = await r.text(); try { all = JSON.parse(txt) || {}; } catch(e){ all = {}; } }
+    if (!r.ok && r.status === 400) PRES_IDX = false;   // 인덱스 규칙이 없으면 예전 방식으로
+  }
+  if (!PRES_IDX || !r || !r.ok || !all[myId]){
+    r = await fetch(`${DB}/presence.json`);
+    if (!r.ok) throw new Error(r.status);
+    txt = await r.text();
+    try { all = JSON.parse(txt) || {}; } catch(e){ throw new Error('presence'); }
+  }
+  const dt = Date.now() - t0;
   CAPST.bytes = txt.length; CAPST.n = Object.keys(all).length; capLat(dt);
   const me = all[myId];
   if (!me) throw new Error('presence');
   joinTs = me.j;
   const now = me.ts;
   if (typeof me.ts === 'number' && isFinite(me.ts)) SKEW = me.ts - Date.now();
+  if (PRES_IDX && Date.now() - presCleanAt > 600000){   // 오래된 접속 기록은 10분에 한 번만 정리
+    presCleanAt = Date.now();
+    fetch(`${DB}/presence.json?orderBy="ts"&endAt=${Math.floor(now - 300000)}&limitToFirst=200`).then(x => x.ok ? x.json() : null).then(o => {
+      if (!o) return; const n = {}; Object.keys(o).forEach(id => { n[id] = null; });
+      if (Object.keys(n).length) fetch(`${DB}/presence.json`, {method: 'PATCH', body: JSON.stringify(n)}).catch(() => {});
+    }).catch(() => {});
+  }
   const stale = Object.keys(all).filter(id => now - all[id].ts > 300000);
   if (stale.length){
     const o = {}; stale.forEach(id => o[id] = null);
@@ -3926,6 +3944,7 @@ function memRec(){
   if (typeof talk !== 'undefined'){ if (talk.a) r.a = 1; if (talk.v) r.v = 1; if (talk.v && talk.vsrc === 'scr') r.vs = 1; if (talk.fm) r.fm = String(talk.fm.f.name).slice(0, 30); if (talk.a && talk.song) r.sg = talk.song; }
   if (typeof rx !== 'undefined' && liveRoom && rx.rid === liveRoom.id){ if (rx.st){ r.st = rx.st; r.sts = rx.sts; } if (rx.hd) r.hd = 1; if (rx.rl){ r.rl = rx.rl; r.rt = rx.rt; if (rx.tx) r.rx = rx.tx; } if (Object.keys(rx.rc).length) r.rc = rx.rc; if (isHost()){ if (rx.rs) r.rs = rx.rs; if (rx.pv) r.pv = 1; if (rx.rv) r.rv = 1; } }
   try { if (isHost() && bc && bc.nopen) r.np = 1; } catch(e){}
+  try { if (isHost() && bc && bc.noquiz) r.nq = 1; } catch(e){}
   if (isHost() && bc){
     const ok = {};
     Object.keys(bc.okA).forEach(u => { (ok[u] = ok[u] || {}).a = bc.okA[u]; });
@@ -4020,7 +4039,7 @@ async function ctlSetPerm(m, p, on){
   await ctlPut('roomctl_' + liveRoom.id + '/' + ck, CTL.map[ck]);
   renderMembers();
 }
-setInterval(ctlPoll, 3000);
+setInterval(ctlPoll, 5000);   // [사용량 절감] 3초→5초
 // ===== 방장 영상 자막: 글을 쓰면 영상 위로 흰 글씨가 올라감 =====
 const CAP = {rid: '', seen: {}, first: true};
 function capShow(t){
@@ -4063,7 +4082,7 @@ async function capPoll(){
   });
   CAP.first = false;
 }
-setInterval(capPoll, 1500);
+setInterval(capPoll, 3000);   // [사용량 절감] 1.5초→3초
 try { const k = $('ccon'); if (k){ k.checked = localStorage.getItem('radio_chatcap') !== '0'; k.onchange = () => { try { localStorage.setItem('radio_chatcap', k.checked ? '1' : '0'); } catch(e){} if (!k.checked){ const ov = $('chatcap'); if (ov) ov.textContent = ''; } }; } } catch(e){}
 try { $('ccadm').onchange = e => ccAdminSet(e.target.checked); } catch(e){}
 try { const r = $('rxon'); if (r){ r.checked = RXSHOW; r.onchange = () => rxShowSet(r.checked); } } catch(e){}
@@ -5508,6 +5527,9 @@ function kqAuto(b){
   const l5 = document.createElement('label'); l5.style.cssText = 'display:block;margin-top:4px;font-size:12px;opacity:.9'; const c5 = document.createElement('input'); c5.type = 'checkbox'; c5.checked = !!(bc && bc.nopen);
   c5.onchange = () => { if (bc){ bc.nopen = c5.checked; try { penSync(); memBeat(); } catch(_){} } };
   l5.append(c5, ' ✏ 손님 마우스 펜 사용 막기 (체크하면 손님은 그림을 못 그리고 손님 그림도 안 보임 · 방장은 계속 사용 가능)'); b.append(l5);
+  const l6 = document.createElement('label'); l6.style.cssText = 'display:block;margin-top:4px;font-size:12px;opacity:.9'; const c6 = document.createElement('input'); c6.type = 'checkbox'; c6.checked = !(bc && bc.noquiz);
+  c6.onchange = () => { if (bc){ bc.noquiz = !c6.checked; try { qzSync(); memBeat(); } catch(_){} } };
+  l6.append(c6, ' 🧮 산수 게임 사용 허용 (처음엔 누구나 가능 · 체크를 풀면 손님은 문제 내기·풀기 불가 · 방장은 계속 사용 가능)'); b.append(l6);
   const l3 = document.createElement('div'); l3.style.cssText = 'margin-top:6px;font-size:12px';
   const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'addhome'; bt.style.cssText = 'margin:0;padding:4px 10px;font-size:12px'; bt.textContent = '📚 노래 폴더 고르기'; bt.title = '내 컴퓨터의 노래방 영상 폴더를 고르면 곡 목록이 손님에게 공유됩니다'; bt.onclick = () => $('klibdir').click();
   const ss = document.createElement('span'); ss.style.cssText = 'margin-left:6px;opacity:.85'; ss.textContent = KLIB.n && liveRoom && KLIB.rid === liveRoom.id ? KLIB.n + '곡 등록됨 (손님이 검색해서 신청)' : '폴더를 고르면 손님이 곡을 검색해 신청할 수 있습니다';
@@ -5867,7 +5889,7 @@ async function rxPoll(){ // 반응이 빨리 보이도록 참가자 기록만 3�
     rxApply();
   } catch(e){}
 }
-setInterval(rxPoll, 3000);
+setInterval(rxPoll, 5000);   // [사용량 절감] 3초→5초
 // ===== ✏ 음악 방 마우스 펜: 색을 골라 화면에 그림 · 그린 뒤 10초 뒤 사라짐 · 방 사람들에게도 보임 · 방장이 막을 수 있음 =====
 const PEN = {on: false, color: '#ff3b30', w: 4, mine: [], remote: {}, dead: new Set(), cur: null, rid: '', sendAt: 0, sendTm: 0, raf: 0, cv: null, g: null, d: 1, failUntil: 0, polling: false, note: ''};
 const PEN_LIFE = 10000, PEN_FADE = 1500, PEN_MAXP = 500;
@@ -6000,6 +6022,157 @@ function penSync(){
   const msg = document.createElement('span'); msg.id = 'penmsg'; msg.className = 'chatnote'; msg.style.cssText = 'margin:0;flex-basis:100%;font-size:12px'; row.append(msg);
   ref.id === 'vshowrow' ? ref.after(row) : ref.before(row);
   penSync(); setInterval(penSync, 1000); setInterval(penPoll, 2000);
+})();
+// ===== 🧮 음악 방 산수 게임: 문제 글씨를 올리면 화면 아래에서 위 끝까지 올라가 사라짐 · 그 전에 먼저 맞추면 💯 100점, 틀리면 ❌ 틀림 · 방장이 허용/금지 =====
+const QZ = {cur: null, el: null, anim: null, done: {}, shown: {}, sh: {}, ex: {}, rid: '', score: 0, last: null, myAns: '', failUntil: 0, polling: false, note: '', endNote: '', lastSub: 0, board: ''};
+function qzBlocked(){ if (!liveRoom || isHost()) return false; try { return memList.some(m => m.h && m.nq); } catch(e){ return false; } }
+function qzNorm(a){ let t = String(a == null ? '' : a).trim().toLowerCase().replace(/\s+/g, ''); if (/^-?\d+(\.\d+)?$/.test(t)) t = String(parseFloat(t)); return t; }
+function qzHash(a, i){ const t = qzNorm(a) + '|' + i; let h = 5381; for (let k = 0; k < t.length; k++) h = ((h << 5) + h + t.charCodeAt(k)) | 0; return (h >>> 0).toString(36); }
+function qzCalc(text){   // 식을 안전하게 계산 (eval 안 씀). 식이 아니면 null
+  const t = String(text || '').replace(/[×xX*]/g, '*').replace(/[÷]/g, '/').replace(/[=?？\s]+$/, '').replace(/\s+/g, '');
+  if (!t || t.length > 30 || !/^[0-9+\-*/().]+$/.test(t) || !/[0-9)][+\-*/]/.test(t)) return null;
+  let i = 0;
+  const num = () => { const m = /^\d+(\.\d+)?/.exec(t.slice(i)); if (!m) throw 0; i += m[0].length; return parseFloat(m[0]); };
+  const fac = () => { if (t[i] === '-'){ i++; return -fac(); } if (t[i] === '('){ i++; const v = expr(); if (t[i] !== ')') throw 0; i++; return v; } return num(); };
+  const term = () => { let v = fac(); while (t[i] === '*' || t[i] === '/'){ const o = t[i++], r = fac(); if (o === '/'){ if (r === 0) throw 0; v /= r; } else v *= r; } return v; };
+  const expr = () => { let v = term(); while (t[i] === '+' || t[i] === '-'){ const o = t[i++], r = term(); v = o === '+' ? v + r : v - r; } return v; };
+  try { const v = expr(); if (i !== t.length || !isFinite(v)) return null; return Math.round(v * 100) / 100; } catch(e){ return null; }
+}
+function qzValid(q){ return !!q && typeof q.i === 'number' && typeof q.t === 'string' && q.t.length > 0 && q.t.length <= 40 && typeof q.h === 'string' && typeof q.d === 'number' && q.d >= 5000 && q.d <= 60000 && typeof q.ts === 'number' && typeof q.u === 'string'; }
+function qzOk(q){   // 막힌 상태면 방장이 낸 문제만, 차단한 사람 문제는 숨김
+  try { if (q.k && typeof BLK !== 'undefined' && BLK[q.k]) return false; } catch(e){}
+  if (!qzBlocked()) return true; try { return memList.some(m => m.h && m.k === q.u); } catch(e){ return false; }
+}
+function qzActive(){ const q = QZ.cur; return !!q && !QZ.done[q.i] && nowS() - q.ts < q.d; }
+function qzLayer(){
+  const sc = $('mwscreen'); if (!sc) return null; let l = $('qzlay');
+  if (!l){ l = document.createElement('div'); l.id = 'qzlay'; l.setAttribute('aria-hidden', 'true'); l.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:7'; }
+  if (l.parentNode !== sc) sc.append(l); return l;
+}
+function qzClearEl(){ try { if (QZ.anim) QZ.anim.cancel(); } catch(_){} QZ.anim = null; if (QZ.el){ try { QZ.el.remove(); } catch(_){} QZ.el = null; } }
+function qzShow(q){
+  qzClearEl(); const lay = qzLayer(); if (!lay) return; QZ.sh[q.i] = 1;
+  const el = document.createElement('div');
+  el.style.cssText = 'position:absolute;left:0;top:0;max-width:92%;text-align:center;font-weight:800;font-size:clamp(22px,4.5vw,40px);color:#fff;text-shadow:0 2px 6px #000,0 0 12px #000;white-space:nowrap;padding:4px 14px;background:rgba(20,10,5,.6);border:2px solid #ffe9a8;border-radius:14px;will-change:transform';
+  const n = document.createElement('small'); n.textContent = '🧮 ' + String(q.n || '손님').slice(0, 12) + '님의 문제'; n.style.cssText = 'display:block;font-size:12px;font-weight:600;color:#ffe9a8';
+  const t = document.createElement('div'); t.textContent = q.t; el.append(n, t); lay.append(el); QZ.el = el;
+  const H = lay.clientHeight || 160, h = el.offsetHeight || 60, W = lay.clientWidth || 300, w = el.offsetWidth || 120;
+  el.style.left = Math.max(0, Math.round((W - w) * (0.1 + 0.8 * ((Math.abs(q.i) % 97) / 97)))) + 'px';   // 모두에게 같은 가로 위치
+  QZ.anim = el.animate([{transform: 'translateY(' + (H + 6) + 'px)'}, {transform: 'translateY(' + (-h - 6) + 'px)'}], {duration: q.d, easing: 'linear', fill: 'forwards'});
+  try { QZ.anim.currentTime = Math.max(0, Math.min(q.d - 1, nowS() - q.ts)); } catch(_){}
+  QZ.anim.onfinish = () => qzClearEl();
+}
+function qzBurst(txt){
+  const lay = qzLayer(); if (!lay) return; const b = document.createElement('div'); b.textContent = txt;
+  b.style.cssText = 'position:absolute;left:50%;top:45%;font-size:clamp(26px,6vw,52px);font-weight:900;color:#ffe9a8;text-shadow:0 3px 10px #000,0 0 18px #000;white-space:nowrap;opacity:0';
+  lay.append(b);
+  try { const a = b.animate([{opacity: 0, transform: 'translate(-50%,-50%) scale(.6)'}, {opacity: 1, transform: 'translate(-50%,-50%) scale(1.1)', offset: .2}, {opacity: 1, transform: 'translate(-50%,-70%) scale(1)', offset: .8}, {opacity: 0, transform: 'translate(-50%,-90%) scale(1)'}], {duration: 2600, easing: 'ease-out', fill: 'forwards'}); a.onfinish = () => b.remove(); } catch(e){}
+  setTimeout(() => { try { b.remove(); } catch(_){} }, 3200);
+}
+function qzSolved(q, w){
+  if (QZ.done[q.i]) return; QZ.done[q.i] = 1; qzClearEl();
+  const nm = String(w.n || '손님').slice(0, 12);
+  qzBurst('💯 100점! ' + nm); try { rxFloat('100', nm, true, '정답!'); } catch(_){}
+  if (w.u === myId){ QZ.score += 100; qzPutScore(q.i); QZ.endNote = '💯 100점! 정답이에요 (내 점수 ' + QZ.score + '점)'; }
+  else QZ.endNote = (q.u === myId ? '🎉 ' : '') + nm + '님이 맞췄어요!';
+  qzSync();
+}
+async function qzPutRec(i, ok, ts){
+  if (!liveRoom || !DB) return false;
+  try { await lj('roomquiz_' + liveRoom.id + '/r/' + myId, 'PUT', {i, n: myNick(), ok: ok ? 1 : 0, ts, s: QZ.score, k: (typeof UID !== 'undefined' ? UID : '')}); return true; }
+  catch(e){ QZ.failUntil = Date.now() + 60000; QZ.note = '지금은 내 화면에서만 보입니다. (Firebase 규칙에 chat/roomquiz_ 읽기·쓰기를 추가하면 다른 사람에게도 보입니다)'; qzSync(); return false; }
+}
+function qzPutScore(i){ qzPutRec(i, true, QZ.last && QZ.last.i === i ? QZ.last.ts : nowS()); }
+async function qzAsk(){
+  const qi = $('qzq'), ai = $('qza'), ds = $('qzdur'); if (!qi || !liveRoom) return;
+  if (qzBlocked()){ qzSync(); return; }
+  if (qzActive()){ QZ.endNote = '지금 문제가 올라가는 중이에요. 끝난 뒤에 올려 주세요'; qzSync(); return; }
+  const raw = qi.value.trim().slice(0, 28); if (!raw){ QZ.endNote = '문제를 적어 주세요. 예: 7×8 , 56÷7 , 15-8'; qzSync(); return; }
+  if (rxBadTxt(raw)){ QZ.endNote = '사용할 수 없는 말입니다.'; qzSync(); return; }
+  let ans = ai.value.trim().slice(0, 20), auto = false;
+  if (!ans){ const v = qzCalc(raw); if (v === null){ QZ.endNote = '자동으로 계산할 수 없는 문제예요. 정답 칸에 정답을 적어 주세요.'; qzSync(); return; } ans = String(v); auto = true; }
+  else if (rxBadTxt(ans)){ QZ.endNote = '사용할 수 없는 말입니다.'; qzSync(); return; }
+  const i = Date.now(), t = raw + (auto && !/[=?]/.test(raw) ? ' = ?' : '');
+  const q = {i, u: myId, n: myNick(), t, h: qzHash(ans, i), d: (+ds.value || 20) * 1000, ts: nowS(), k: (typeof UID !== 'undefined' ? UID : '')};
+  QZ.cur = q; QZ.done[i] = 0; QZ.myAns = ans; QZ.endNote = ''; QZ.note = ''; qi.value = ''; ai.value = '';
+  qzShow(q); qzSync();
+  try { await lj('roomquiz_' + liveRoom.id + '/q', 'PUT', q); }
+  catch(e){ QZ.failUntil = Date.now() + 60000; QZ.note = '지금은 내 화면에서만 보입니다. (Firebase 규칙에 chat/roomquiz_ 읽기·쓰기를 추가하면 다른 사람에게도 보입니다)'; qzSync(); }
+}
+async function qzSubmit(){
+  const q = QZ.cur, inp = $('qzin'); if (!inp) return; const val = inp.value.trim(); if (!val) return;
+  if (qzBlocked()){ qzSync(); return; }
+  if (!q || !qzActive()){ QZ.endNote = '지금 풀 수 있는 문제가 없어요'; qzSync(); return; }
+  if (q.u === myId){ QZ.endNote = '내가 낸 문제는 풀 수 없어요'; qzSync(); return; }
+  const n = Date.now(); if (n - QZ.lastSub < 700) return; QZ.lastSub = n;
+  const ok = qzHash(val, q.i) === q.h, ts = nowS(); inp.value = ''; QZ.last = {i: q.i, ok, ts};
+  if (!ok){ QZ.shown[myId + ':' + q.i + ':' + ts] = 1; try { rxFloat('txt', myNick(), true, '❌ 틀림'); } catch(_){} QZ.endNote = '❌ 틀림 — 다시 풀어 보세요'; }
+  else QZ.endNote = '✅ 정답! 확인 중…';
+  qzSync();
+  const saved = await qzPutRec(q.i, ok, ts);
+  if (ok && !saved) qzSolved(q, {u: myId, n: myNick()});   // 서버에 못 올릴 때는 내 화면에서만 처리
+  else if (ok) setTimeout(qzPoll, 300);
+}
+async function qzPoll(){
+  if (QZ.rid && (!liveRoom || liveRoom.id !== QZ.rid)){   // 방을 나가면 내 기록 정리
+    const old = QZ.rid; QZ.rid = ''; QZ.cur = null; QZ.done = {}; QZ.shown = {}; QZ.sh = {}; QZ.ex = {}; QZ.score = 0; QZ.last = null; QZ.board = ''; QZ.endNote = ''; qzClearEl();
+    try { if (DB) lj('roomquiz_' + old + '/r/' + myId, 'DELETE').catch(() => {}); } catch(_){}
+    qzSync();
+  }
+  if (!liveRoom || !DB || document.hidden || QZ.polling || Date.now() < QZ.failUntil) return;
+  const id = liveRoom.id; if (QZ.rid !== id){ QZ.rid = id; QZ.cur = null; QZ.done = {}; QZ.shown = {}; QZ.sh = {}; QZ.ex = {}; QZ.score = 0; QZ.last = null; QZ.board = ''; }
+  QZ.polling = true;
+  try {
+    const d = (await lj('roomquiz_' + id)) || {};
+    if (!liveRoom || liveRoom.id !== id) return;
+    const r = d.r && typeof d.r === 'object' ? d.r : {}, q = d.q;
+    const rows = Object.keys(r).map(u => Object.assign({u}, r[u])).filter(x => x && typeof x === 'object');
+    QZ.board = rows.filter(x => typeof x.s === 'number' && x.s > 0).sort((a, b) => b.s - a.s).slice(0, 5).map(x => String(x.n || '손님').slice(0, 10) + ' ' + x.s).join(' · ');
+    if (qzValid(q) && qzOk(q)){
+      if (!QZ.cur || QZ.cur.i !== q.i){ QZ.cur = q; if (nowS() - q.ts < q.d){ QZ.endNote = ''; qzShow(q); } }
+      const ok = rows.filter(x => x.i === q.i && typeof x.ts === 'number' && !(x.k && typeof BLK !== 'undefined' && BLK[x.k]));
+      ok.forEach(x => { if (x.ok === 0 && x.u !== myId){ const key = x.u + ':' + x.i + ':' + x.ts; if (!QZ.shown[key]){ QZ.shown[key] = 1; if (nowS() - x.ts < 8000) try { rxFloat('txt', String(x.n || '손님').slice(0, 12), false, '❌ 틀림'); } catch(_){} } } });
+      const wins = ok.filter(x => x.ok === 1 && x.u !== q.u).sort((a, b) => a.ts - b.ts);
+      if (wins.length && !QZ.done[q.i] && QZ.sh[q.i]) qzSolved(q, wins[0]);
+      else if (wins.length && !QZ.done[q.i]) QZ.done[q.i] = 1;   // 늦게 들어온 사람: 이미 끝난 문제
+    }
+    qzSync();
+  } catch(e){} finally { QZ.polling = false; }
+}
+function qzSync(){
+  const row = $('qzrow'); if (!row) return;
+  row.hidden = !liveRoom; const bl = qzBlocked(), q = QZ.cur, act = qzActive();
+  if (QZ.el && q && !qzOk(q)) qzClearEl();
+  if (q && QZ.sh[q.i] && !QZ.done[q.i] && !act && !QZ.ex[q.i]){ QZ.ex[q.i] = 1; QZ.endNote = '⏰ 시간 끝 — 아무도 못 맞췄어요' + (q.u === myId && QZ.myAns ? ' (정답: ' + QZ.myAns + ')' : ''); }
+  ['qzgo', 'qzq', 'qza', 'qzdur'].forEach(k => { const x = $(k); if (x) x.disabled = bl; });
+  row.querySelectorAll('.qzgen').forEach(b => { b.disabled = bl; });
+  const box = $('qzact'), mine = !!q && q.u === myId, show = act && !bl && qzOk(q);
+  if (box){ box.hidden = !show; if (show){ $('qzat').textContent = '📝 ' + q.t + ' · ' + String(q.n || '손님').slice(0, 12) + '님 문제'; $('qzin').disabled = mine; $('qzsub').disabled = mine; $('qzin').placeholder = mine ? '내가 낸 문제예요' : '정답 입력 후 Enter'; } }
+  const m = $('qzmsg'); if (m) m.textContent = QZ.note || (bl ? '🚫 방장이 산수 게임을 막아 두었습니다' : (QZ.endNote || (show ? (mine ? '내 문제가 올라가는 중 — 먼저 맞추는 사람이 💯 100점' : '글씨가 위 끝까지 올라가기 전에 정답을 입력하세요 — 맞추면 💯 100점, 틀리면 ❌ 틀림') : '문제를 적어 올리면 영상 화면 아래에서 위로 올라갑니다 · 먼저 맞춘 사람이 💯 100점')));
+  const sb = $('qzscore'); if (sb) sb.textContent = QZ.board ? '🏆 ' + QZ.board : '';
+}
+(() => {
+  const ref = $('penrow') || $('vshowrow') || $('mwscreen'); if (!ref) return;
+  const row = document.createElement('div'); row.className = 'mwsize'; row.id = 'qzrow'; row.hidden = true; row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;align-items:center';
+  const mkb = (txt, fn, cls) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'addhome' + (cls ? ' ' + cls : ''); b.style.cssText = 'margin:0;padding:4px 10px;font-size:13px'; b.textContent = txt; b.onclick = fn; return b; };
+  const mki = (id, ph, w, ml) => { const x = document.createElement('input'); x.type = 'text'; x.id = id; x.maxLength = ml; x.placeholder = ph; x.setAttribute('aria-label', ph); x.style.cssText = 'width:' + w + 'px;background:#241610;color:var(--ink);border:1px solid #b99a5b88;border-radius:6px;padding:5px 10px;font-size:13px'; return x; };
+  const st = document.createElement('strong'); st.style.cssText = 'font-size:13px;color:var(--amber)'; st.textContent = '🧮 산수 게임'; row.append(st);
+  const qi = mki('qzq', '문제 (예: 7×8 , 56÷7 , 15-8)', 190, 28), ai = mki('qza', '정답 (비우면 자동 계산)', 150, 20);
+  qi.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); qzAsk(); } }); ai.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); qzAsk(); } });
+  const ds = document.createElement('select'); ds.id = 'qzdur'; ds.setAttribute('aria-label', '올라가는 시간'); ds.style.cssText = 'background:#241610;color:var(--ink);border:1px solid #b99a5b88;border-radius:6px;padding:3px 6px;font-size:13px';
+  [[10, '10초'], [20, '20초'], [30, '30초'], [45, '45초']].forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = '⏱ ' + t; if (v === 20) o.selected = true; ds.append(o); });
+  const go = mkb('🚀 문제 올리기', qzAsk); go.id = 'qzgo'; row.append(qi, ai, ds, go);
+  const R = n => Math.floor(Math.random() * n);
+  const gens = [['🎲 구구단', () => (2 + R(8)) + '×' + (1 + R(9))], ['🎲 덧셈', () => (10 + R(90)) + '+' + (10 + R(90))], ['🎲 뺄셈', () => { const a = 20 + R(80); return a + '-' + (1 + R(a - 1)); }], ['🎲 곱셈', () => (11 + R(19)) + '×' + (2 + R(8))], ['🎲 나눗셈', () => { const b = 2 + R(8); return (b * (2 + R(9))) + '÷' + b; }]];
+  gens.forEach(([t, f]) => row.append(mkb(t, () => { qi.value = f(); ai.value = ''; qi.focus(); }, 'qzgen')));
+  const act = document.createElement('div'); act.id = 'qzact'; act.hidden = true; act.style.cssText = 'flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:#1a0f08;border-radius:8px;padding:6px 10px';
+  const at = document.createElement('b'); at.id = 'qzat'; at.style.cssText = 'color:#ffe9a8;font-size:14px';
+  const inp = mki('qzin', '정답 입력 후 Enter', 150, 20); inp.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); qzSubmit(); } });
+  const sub = mkb('✅ 제출', qzSubmit); sub.id = 'qzsub'; act.append(at, inp, sub); row.append(act);
+  const msg = document.createElement('span'); msg.id = 'qzmsg'; msg.className = 'chatnote'; msg.style.cssText = 'margin:0;flex-basis:100%;font-size:12px'; row.append(msg);
+  const sc = document.createElement('span'); sc.id = 'qzscore'; sc.className = 'chatnote'; sc.style.cssText = 'margin:0;flex-basis:100%;font-size:12px;color:var(--amber)'; row.append(sc);
+  ref.after ? ref.after(row) : ref.before(row);
+  qzSync(); setInterval(qzSync, 500); setInterval(qzPoll, 1800);
 })();
 // ---- 입장 ----
 async function listen(bid, name, locked, presetPw){
@@ -8595,7 +8768,7 @@ $('bcscr').onclick = async () => {
 addEventListener('beforeunload', e => { if (bc) { e.preventDefault(); e.returnValue = ''; return ''; } }); // 방장이 탭·브라우저를 닫으려 하면 확인 창 (문구는 브라우저가 정함)
 addEventListener('pagehide', e => { if (e.persisted) return; stopBroadcast(); stopListen(); }); // 앱 전환 등으로 페이지가 보관만 되는 경우(persisted)에는 방을 닫지 않음
 document.addEventListener('visibilitychange', () => { if (!document.hidden && bc && bc.reg) bc.reg(); });
-setInterval(() => { if (!document.hidden) loadLive(); }, 10000);
+setInterval(() => { if (!document.hidden) loadLive(); }, 20000);   // [사용량 절감] 10초→20초
 setTimeout(loadLive, 1500);
 
 renderRooms();
@@ -8607,7 +8780,9 @@ if (DB){
   admit();
   setInterval(() => { if (chatAllowed || !document.hidden) admit(); }, BEAT);
 } else { fetchChat(true); }
-setInterval(() => { if (!document.hidden && chatAllowed){ fetchChat(false); loadRooms(); checkInbox(); } }, 5000);
+setInterval(() => { if (!document.hidden && chatAllowed) fetchChat(false); }, 5000);   // 실시간 연결이 끊겼을 때만 실제로 요청함
+setInterval(() => { if (!document.hidden && chatAllowed) checkInbox(); }, 10000);   // [사용량 절감] 5초→10초
+setInterval(() => { if (!document.hidden && chatAllowed) loadRooms(); }, 30000);   // [사용량 절감] 5초→30초
 
 $('addhome').onclick = () => {
   const ua = navigator.userAgent, m = $('addmsg');
