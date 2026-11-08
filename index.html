@@ -4846,12 +4846,7 @@ async function answerOffer(me, lid, off, pv){
   pc.ontrack = e => { if (!off.u) return; const x = me.tk[lid] || (me.tk[lid] = {uid: String(off.u), at: null, vt: null, node: null, el: null}); if (e.track.kind === 'audio') x.at = e.track; else x.vt = e.track; hostTalkApply(me); };
   if (pv) me.stream.getAudioTracks().forEach(t => pc.addTrack(t, me.stream)); // 밖에서 듣는 사람에게는 소리만
   else me.stream.getTracks().forEach(t => pc.addTrack(t, me.stream));
-  if (!pv) try { // 손님 카메라를 내보내는 별도 영상 칸 (방장 영상과 따로)
-    if (!me.stream.getVideoTracks().length) pc.addTransceiver('video', {direction: 'sendonly'});
-    pc._gss = []; for (let i = 0; i < VSLOTS; i++) pc._gss.push(pc.addTransceiver('video', {direction: 'sendonly'}).sender);
-    pc._gs = pc._gss[0];
-    vwEnsure(me).forEach((s, i) => { if (s && s.track) pc._gss[i].replaceTrack(s.track).catch(() => {}); });
-  } catch(e){}
+  if (!pv) pc._gss = [];   // 화상 칸 보내는 자리: 손님 요청서를 받은 뒤 아래에서 연결함
   pc.onconnectionstatechange = () => {
     if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) setTimeout(() => {
       if (pc.connectionState !== 'connected'){ pc.close(); if (me.pcs[lid] === pc) delete me.pcs[lid]; lj('sig_' + me.rid + '/o_' + lid, 'DELETE').catch(() => {}); lj('sig_' + me.rid + '/a_' + lid, 'DELETE').catch(() => {}); }
@@ -4859,6 +4854,13 @@ async function answerOffer(me, lid, off, pv){
   };
   try {
     await pc.setRemoteDescription({type: 'offer', sdp: off.sdp});
+    if (!pv) try { // 🖼 화상 칸: 손님 요청서의 '영상 받는 자리'를 찾아 보내기 전용으로 바꿈 (미리 만들어 둔 자리는 브라우저가 연결해 주지 않아 칸 영상이 안 나가던 문제 방지)
+      const secs = String(off.sdp).split(/\r?\n(?=m=)/).map(x => ({k: (x.match(/^m=(\w+)/) || [])[1], mid: (x.match(/^a=mid:(\S+)/m) || [])[1]})).filter(x => x.k === 'video' && x.mid);
+      const tcs = pc.getTransceivers();
+      secs.slice(1, 1 + VSLOTS).forEach(x => { const t = tcs.find(y => y.mid === x.mid); if (t){ try { t.direction = 'sendonly'; } catch(e){} pc._gss.push(t.sender); } });   // 첫 영상 줄은 방장 기본 영상, 그 뒤가 화상 칸
+      pc._gs = pc._gss[0];
+      vwEnsure(me).forEach((s, i) => { if (s && s.track && pc._gss[i]) pc._gss[i].replaceTrack(s.track).catch(() => {}); });
+    } catch(e){}
     await pc.setLocalDescription(await pc.createAnswer());
     pc.getSenders().forEach(sd => { if (sd.track && sd.track.kind === 'video'){ try { const q = sd.getParameters(); q.encodings = q.encodings && q.encodings.length ? q.encodings : [{}]; q.encodings[0].maxBitrate = me.vbr || 250000; if (me.vscale) q.encodings[0].scaleResolutionDownBy = me.vscale; sd.setParameters(q).catch(() => {}); } catch(e){} } });
     await iceDone(pc);
