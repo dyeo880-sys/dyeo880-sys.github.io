@@ -3305,10 +3305,16 @@ async function mrxSend(k, nm, txt, face){
     if (!r.ok) throw new Error(r.status);
   } catch(e){ mrxFail = true; setTimeout(() => { mrxFail = false; }, 60000); mrxNote('지금은 내 화면에서만 보입니다. (Firebase 규칙에 mainrx 읽기·쓰기를 추가하면 다른 접속자에게도 보입니다)'); }
 }
+let MRX_IDX = true;
 async function mrxPoll(){
   if (!DB || !chatAllowed || mrxFail || document.hidden) return;
   try {
-    const r = await fetch(`${DB}/mainrx.json`); if (!r.ok) throw new Error(r.status);
+    let r = null;
+    if (MRX_IDX){   // 최근 25초 안의 신호만 받음(규칙에 mainrx ts 인덱스 필요, 없으면 자동으로 전체 받기)
+      r = await fetch(`${DB}/mainrx.json?orderBy="ts"&startAt=${Math.floor(nowS() - 25000)}`);
+      if (!r.ok && r.status === 400) MRX_IDX = false;
+    }
+    if (!MRX_IDX || !r || !r.ok){ r = await fetch(`${DB}/mainrx.json`); if (!r.ok) throw new Error(r.status); }
     const d = (await r.json()) || {}, now = nowS();
     Object.keys(d).forEach(s => { try {
       const m = d[s];
@@ -3393,7 +3399,7 @@ function mrxPress(k, txt){
   };
   lab(); setInterval(lab, 500);
 })();
-setInterval(mrxPoll, 6000);   // [사용량 절감] 3.5초→6초
+setInterval(mrxPoll, 3000);   // 최근 신호만 받으므로 짧게 둬도 사용량이 거의 늘지 않음 (망치질·좋아요가 바로 보이게)
 $('room').onchange = () => {
   const v = $('room').value, isDm = v.indexOf('u:') === 0;
   if (isDm){ delete unread[v.slice(2)]; peerSig = ''; renderRooms(v); }
