@@ -907,11 +907,12 @@ window.botFace=function(n){var F=['👩','👨','🧑','👵','👴','👧','�
         <div><label class="l" for="pr_fdn">읍·면·동 *</label><select id="pr_fdn" style="width:100%"></select></div>
         <div class="full"><label class="l" for="pr_ft">제목 * (최대 40자)</label><input id="pr_ft" maxlength="40" style="width:100%" placeholder="예: 왜관 전통시장 가을 먹거리 축제 안내"></div>
         <div class="full"><label class="l" for="pr_fb">내용 * (최대 500자)</label><textarea id="pr_fb" maxlength="500" placeholder="언제·어디서·무엇을 하는지 적어 주세요"></textarea></div>
-        <div><label class="l" for="pr_fp">가게·단체 전화번호 (선택)</label><input id="pr_fp" maxlength="16" inputmode="tel" style="width:100%" placeholder="예: 054-123-4567"></div>
+        <div><label class="l" for="pr_fp">전화번호 (선택 · 「기타」 분류는 휴대폰 번호도 가능)</label><input id="pr_fp" maxlength="16" inputmode="tel" style="width:100%" placeholder="예: 054-123-4567"></div>
+        <div><label class="l" for="pr_fbz">사업자등록번호 (선택 · 없어도 등록됨)</label><input id="pr_fbz" maxlength="12" inputmode="numeric" style="width:100%" placeholder="예: 123-45-67890"></div>
         <div><label class="l" for="pr_fa">장소·상세 주소 (선택, 80자)</label><input id="pr_fa" maxlength="80" style="width:100%" placeholder="예: 왜관로 123"></div>
         <div class="full"><label class="l" for="pr_fm">지도 주소 링크 (선택 · 카카오맵·네이버지도·구글지도 주소만)</label><input id="pr_fm" maxlength="300" style="width:100%" placeholder="지도 앱의 공유 주소를 붙여넣으세요 (https://…)"></div>
       </div>
-      <label style="display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.6;margin:10px 0;padding:12px;border:2px solid #ffcf7a;border-radius:10px;background:#2a1a10;cursor:pointer"><input type="checkbox" id="pr_fok2" style="margin-top:2px;width:24px;height:24px;min-width:24px;accent-color:#ffcf7a;cursor:pointer"><span><b style="color:#ffcf7a">✅ 여기를 체크해야 등록됩니다</b><br>내가 직접 운영하거나 허락을 받은 내용만 올립니다. 개인 휴대전화 번호·주민 정보는 적지 않습니다. 홍보·유도성 링크(블로그·카페·오픈채팅·쇼핑몰 등)는 쓸 수 없고, 지도 주소 칸에만 지도 링크를 넣을 수 있습니다.</span></label>
+      <label style="display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.6;margin:10px 0;padding:12px;border:2px solid #ffcf7a;border-radius:10px;background:#2a1a10;cursor:pointer"><input type="checkbox" id="pr_fok2" style="margin-top:2px;width:24px;height:24px;min-width:24px;accent-color:#ffcf7a;cursor:pointer"><span><b style="color:#ffcf7a">✅ 여기를 체크해야 등록됩니다</b><br>내가 직접 운영하거나 허락을 받은 내용만 올립니다. 주민 정보는 적지 않습니다. 휴대전화 번호는 「기타」 분류에서만 적을 수 있고, 적은 번호는 누구나 볼 수 있습니다. 전화번호·사업자번호는 안 적어도 등록됩니다. 홍보·유도성 링크(블로그·카페·오픈채팅·쇼핑몰 등)는 쓸 수 없고, 지도 주소 칸에만 지도 링크를 넣을 수 있습니다.</span></label>
       <div class="acts"><button class="btn pri" id="pr_fok" type="button">등록</button><button class="btn" id="pr_fcancel" type="button">취소</button></div>
       <div class="bmsg" id="pr_fmsg" role="status"></div>
     </section>
@@ -9323,6 +9324,7 @@ function card(p){
   const bd = document.createElement('div'); bd.className = 'body'; bd.textContent = p.b || '';
   d.append(top, h, mt, bd);
   if (p.ph){ const ph = document.createElement('div'); ph.className = 'addr'; ph.style.marginBottom = '2px'; ph.textContent = '📞 ' + p.ph; d.append(ph); }
+  if (p.bz){ const bz = document.createElement('div'); bz.className = 'addr'; bz.style.marginBottom = '2px'; bz.textContent = '🏢 사업자번호 ' + p.bz; d.append(bz); }
   const place = [p.g, p.dn, p.a].filter(Boolean).join(' ') || [p.r, p.t].join(' '), eq = encodeURIComponent((p.r && p.g ? p.r + ' ' : '') + place);
   if (p.a){ const ad = document.createElement('div'); ad.className = 'addr'; ad.textContent = '🏠 ' + [p.g, p.dn, p.a].filter(Boolean).join(' '); d.append(ad); }
   const acts = document.createElement('div'); acts.className = 'acts';
@@ -9437,7 +9439,7 @@ async function submit(){
   await loadBans(); if (isBanned()){ msg(BANMSG); return; }
   let last = 0; try { last = +(localStorage.getItem('promo_last') || 0); } catch(e){}
   if (Date.now() - last < COOLDOWN){ msg(`도배 방지: ${Math.ceil((COOLDOWN - (Date.now() - last)) / 1000)}초 뒤에 다시 등록할 수 있습니다.`); return; }
-  const p = {n: f('fn').slice(0, 12) || '손님', r: $('fr').value, c: $('fc').value, g: $('fg').value, dn: $('fdn').value, t: f('ft'), b: $('fb').value.trim(), a: f('fa'), ph: f('fp')};
+  const p = {n: f('fn').slice(0, 12) || '손님', r: $('fr').value, c: $('fc').value, g: $('fg').value, dn: $('fdn').value, t: f('ft'), b: $('fb').value.trim(), a: f('fa'), ph: f('fp'), bz: f('fbz')};
   if (!p.r){ msg('시·도를 선택하세요.'); return; }
   if (!p.g){ msg('시·군·구를 선택하세요.'); return; }
   if (!p.dn){ msg('읍·면·동을 선택하세요.'); return; }
@@ -9445,20 +9447,21 @@ async function submit(){
   if (!p.b){ msg('내용을 입력하세요.'); return; }
   { const bm = textMsg([p.n, p.t, p.b, p.a, p.ph]); if (bm){ msg(bm); return; } }
   if (p.ph && !/^[0-9+\-\s()]{7,16}$/.test(p.ph)){ msg('전화번호는 숫자와 - 만 사용해 주세요.'); return; }
-  if (/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/.test(p.ph + ' ' + p.b)){ msg('개인 휴대전화 번호는 등록할 수 없습니다. 가게·단체 번호만 적어 주세요.'); return; }
+  if (p.c !== '기타' && /01[016789][-\s]?\d{3,4}[-\s]?\d{4}/.test(p.ph + ' ' + p.b)){ msg('휴대전화 번호는 「기타」 분류에서만 적을 수 있습니다. 가게·단체 번호를 적거나 분류를 「기타」로 바꿔 주세요.'); return; }
+  if (p.bz){ const d = p.bz.replace(/\D/g, ''); if (d.length !== 10){ msg('사업자등록번호는 숫자 10자리입니다. (예: 123-45-67890) 없으면 비워 두세요.'); return; } p.bz = d.slice(0, 3) + '-' + d.slice(3, 5) + '-' + d.slice(5); }
   const pw = $('fpw').value;
   if (pw.length < 4){ msg('삭제용 비밀번호를 4자 이상 입력하세요.'); return; }
   if (!$('fok2').checked){ msg('안내 문구에 동의(체크)해 주세요.'); return; }
   const m = $('fm').value.trim();
   if (m && !isMapUrl(m)){ msg('지도 링크는 카카오맵·네이버지도·구글지도 주소만 넣을 수 있습니다.'); return; }
   p.m = m; p.pw = await sha(pw); p.ts = Date.now(); p.v = 0; p.u = uid; await keysReady; if (myPubB64) p.pk = myPubB64;
-  ['m','a','ph'].forEach(k => { if (!p[k]) delete p[k]; });
+  ['m','a','ph','bz'].forEach(k => { if (!p[k]) delete p[k]; });
   msg('등록 중…'); $('fok').disabled = true;
   try {
     const r = await fetch(`${DB}/promo.json`, {method: 'POST', body: JSON.stringify(p)});
     if (!r.ok) throw new Error(r.status);
     try { localStorage.setItem('promo_last', String(Date.now())); localStorage.setItem('board_nick', p.n); } catch(e){}
-    ['ft','fb','fa','fp','fm','fpw'].forEach(id => $(id).value = ''); $('fok2').checked = false;
+    ['ft','fb','fa','fp','fbz','fm','fpw'].forEach(id => $(id).value = ''); $('fok2').checked = false;
     msg(''); setForm(false);
     await trim(p.r); shown = PAGE; await load();
   } catch(e){ msg('등록하지 못했습니다. Firebase 규칙(promo 쓰기 허용)을 확인하세요.'); }
