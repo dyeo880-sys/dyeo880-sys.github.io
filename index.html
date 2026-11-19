@@ -1099,16 +1099,16 @@ window.botFace=function(n){var F=['👩','👨','🧑','👵','👴','👧','�
         </div>
       </div>
                 <div class="tp" id="p-music" hidden>
-            <label class="addhome" style="margin:0;cursor:pointer">음악 파일<input id="bcfile" type="file" accept="audio/*" multiple hidden></label>
+            <label class="addhome" style="margin:0;cursor:pointer" title="음악·영상 파일을 여러 개 골라 재생목록에 줄 세웁니다. 파일을 이 창에 끌어다 놓아도 됩니다.">🎵 음악 파일 (여러 개)<input id="bcfile" type="file" accept="audio/*,video/*" multiple hidden></label>
             <select id="bcloop" aria-label="반복 방식" title="고른 음악 파일을 어떻게 반복할지" style="background:#241610;color:var(--ink);border:1px solid #b99a5b88;border-radius:6px;padding:5px 8px;font-size:13px"><option value="all">🔁 전체 반복</option><option value="one">🔂 한 곡 반복</option><option value="off">반복 안 함</option></select>
             <button class="addhome" style="margin:0" type="button" id="bcmic">🎤 마이크</button>
             <button class="addhome" style="margin:0" type="button" id="bcscr">🖥 PC 소리</button>
           </div>
       <div class="tp" id="p-vplay" hidden>
-        <label class="addhome" style="margin:0;cursor:pointer">📂 영상 파일<input id="bcvfile" type="file" accept="video/*" hidden></label>
+        <label class="addhome" style="margin:0;cursor:pointer" title="영상·음악 파일을 여러 개 골라 재생목록에 줄 세웁니다. 파일을 이 창에 끌어다 놓아도 됩니다.">📂 영상 파일 (여러 개)<input id="bcvfile" type="file" accept="video/*,audio/*" multiple hidden></label>
         <input id="vurl" placeholder="영상 링크 붙여넣기 (유튜브 · mp4 · m3u8)" aria-label="영상 링크">
         <button class="addhome" style="margin:0" type="button" id="vgo">▶ 링크 재생</button>
-        <label class="addhome" style="margin:0;cursor:pointer" title="내 컴퓨터의 영상 파일을 목록 맨 뒤에 추가 (여러 개 선택 가능)">🎬 영상 파일 추가<input id="plfile" type="file" accept="video/*" multiple hidden></label>
+        <label class="addhome" style="margin:0;cursor:pointer" title="내 컴퓨터의 영상 파일을 목록 맨 뒤에 추가 (여러 개 선택 가능)">🎬 영상 파일 추가<input id="plfile" type="file" accept="video/*,audio/*" multiple hidden></label>
         <button class="addhome" style="margin:0" type="button" id="vadd" title="재생목록 맨 뒤에 추가합니다. 앞 영상이 끝나면 순서대로 자동 재생됩니다. (링크를 여러 개 붙여넣어도 됩니다)">➕ 목록에 추가</button>
         <div id="plbox" aria-label="재생목록"></div>
       </div>
@@ -6823,25 +6823,8 @@ $('pwclear').onclick = () => {
   if (!bc) return;
   bc.pw = ''; bc.lock = ''; bc.pvOff = false; $('pvok').checked = false; bc.reg(); roomHead(); setBc('비밀번호를 해제했습니다. 이제 누구나 입장할 수 있습니다.'); closePanels();
 };
-$('bcfile').onchange = e => {
-  const files = [...e.target.files]; if (!files.length) return;
-  if (!bc){ setBc('먼저 "음악 방 만들기"로 방을 만들어 주세요.'); e.target.value = ''; return; }
-  const a = $('bcAudio'); let i = 0;
-  const play = () => { a.src = URL.createObjectURL(files[i]); a.play().catch(() => {}); mwUpdate('🎵 ' + files[i].name + (files.length > 1 ? ' (' + (i + 1) + '/' + files.length + ')' : '')); };
-  a.onended = () => {
-    const m = $('bcloop') ? $('bcloop').value : 'all';
-    if (m === 'one'){ a.currentTime = 0; a.play().catch(() => {}); return; }
-    if (m === 'off' && i + 1 >= files.length){ mwUpdate('🎵 재생이 모두 끝났습니다. (반복 안 함)'); return; }
-    i = (i + 1) % files.length; play();
-  };
-  a.hidden = false;
-  a.addEventListener('playing', () => {
-    const cs = a.captureStream ? a.captureStream() : (a.mozCaptureStream ? a.mozCaptureStream() : null);
-    if (!cs || !cs.getAudioTracks().length){ setBc('이 브라우저는 파일 재생 방송을 지원하지 않습니다. 마이크나 PC 소리를 이용하세요.'); return; }
-    swapSource(cs);
-  }, {once: true});
-  play(); e.target.value = '';
-};
+$('bcfile').onchange = e => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) plAddFiles(fs, true); };
+$('bcloop').onchange = e => { const v = e.target.value; PL.loop = (v === 'all'); PL.one = (v === 'one'); plSave(); plRender(); };
 $('mixhost').oninput = e => { const v = +e.target.value; $('mixhostv').textContent = Math.round(v * 100) + '%'; if (!bc) return; bc.mv = v; try { mixInit(bc); bc.mg.gain.value = v; } catch(x){} };
 $('mixradio').oninput = e => { const v = +e.target.value; $('mixradiov').textContent = Math.round(v * 100) + '%'; rdCastLvl = v; try { if (rdCastG) rdCastG.gain.value = rdCastDest ? v * 0.8 : v; } catch(x){} };
 $('mixguest').oninput = e => { const v = +e.target.value; $('mixguestv').textContent = Math.round(v * 100) + '%'; if (!bc) return; bc.gvAll = v; gvApply(bc); };
@@ -6930,7 +6913,7 @@ function vxReset(me){   // 방이 끝나면 연결·체크 모두 해제
 // 창을 벗어나거나 다른 앱으로 넘어가면 버튼 눌림은 풀어서 소리가 계속 새지 않게 함 (체크한 것은 그대로 유지)
 addEventListener('blur', () => ['sys', 'mic'].forEach(k => { if (VX[k].held){ VX[k].held = false; vxApply(k); } }));
 document.addEventListener('visibilitychange', () => { if (document.hidden) ['sys', 'mic'].forEach(k => { if (VX[k].held){ VX[k].held = false; vxApply(k); } }); });
-$('bcvfile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) hostFile(f); };
+$('bcvfile').onchange = e => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) plAddFiles(fs, true); };
 $('vgo').onclick = () => hostLink($('vurl').value);
 $('vurl').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) hostLink($('vurl').value); });
 $('vstop').onclick = hostVideoOff;
@@ -7044,15 +7027,54 @@ function plAdd(raw){
   return n > 0;
 }
 // 내 컴퓨터의 영상 파일 추가 (이 기기에서만 유지 · 새로고침하면 사라짐)
-function plAddFiles(files){
-  let n = 0, skip = 0;
-  for (const f of [...files]){
-    if (!(/^video\//.test(f.type) || /\.(mp4|webm|mkv|mov|m4v|ogv|avi)$/i.test(f.name))){ skip++; continue; }
-    if (PL.list.length >= 100) break;
-    PL.list.push({f, t: f.name}); n++;
+const PL_MEDIA = /\.(mp4|webm|mkv|mov|m4v|ogv|avi|mp3|m4a|aac|wav|ogg|oga|opus|flac|wma)$/i;
+const plIsMedia = f => /^(video|audio)\//.test(f.type) || PL_MEDIA.test(f.name);
+// 지금 아무것도 안 틀고 있거나 방금 끝났는가? (그럴 때 추가한 파일은 바로 재생 시작)
+const plIdle = () => !MV.k || ((MV.k === 'file' || MV.k === 'url') && mwvid.ended);
+function plAddFiles(files, autostart){
+  if (!bc){ plMsg('먼저 「🎵 음악 방 만들기」로 방을 만들어 주세요.'); return; }
+  const arr = [...files].sort((a, b) => a.name.localeCompare(b.name, 'ko', {numeric: true}));   // 이름순(1, 2, 10 순서)
+  const added = []; let skip = 0, full = false;
+  for (const f of arr){
+    if (!plIsMedia(f)){ skip++; continue; }
+    if (PL.list.length >= 100){ full = true; break; }
+    const it = {f, t: f.name}; PL.list.push(it); added.push(it);
   }
-  plMsg(n ? '➕ 영상 파일 ' + n + '개 추가했습니다. (파일은 새로고침하면 목록에서 사라집니다)' + (skip ? ' · 영상이 아닌 ' + skip + '개는 건너뜀' : '') : '영상 파일(mp4·webm 등)을 골라 주세요.');
+  const idle = plIdle();
+  plMsg(added.length ? '➕ 파일 ' + added.length + '개를 줄 세웠습니다. (전체 ' + PL.list.length + '개 · 끝나면 다음 곡 자동 재생 · 새로고침하면 파일 목록은 사라집니다)' + (skip ? ' · 음악·영상이 아닌 ' + skip + '개는 건너뜀' : '') + (full ? ' · 최대 100개까지' : '') : '음악·영상 파일(mp3·mp4 등)을 골라 주세요.');
+  if (added.length && autostart && idle) plPlay(added[0]);
 }
+// 폴더째 끌어다 놓기 지원 (폴더 안 파일까지 모두 읽음)
+async function plReadDrop(dt){
+  const out = [];
+  const walk = async en => {
+    if (!en) return;
+    if (en.isFile){ await new Promise(r => en.file(f => { out.push(f); r(); }, r)); }
+    else if (en.isDirectory){
+      const rd = en.createReader();
+      for (;;){ const ents = await new Promise(r => rd.readEntries(r, () => r([]))); if (!ents.length) break; for (const x of ents) await walk(x); }
+    }
+  };
+  const items = [...(dt.items || [])];
+  if (items.length && items[0].webkitGetAsEntry){
+    const ents = items.map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+    for (const en of ents) await walk(en);
+  }
+  return out.length ? out : [...(dt.files || [])];
+}
+// 음방 창·음악/영상 패널에 파일을 끌어다 놓으면 재생목록에 줄 세움 (방장만)
+['mediawin', 'p-music', 'p-vplay'].forEach(id => {
+  const el = $(id); if (!el) return;
+  const hasFiles = e => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+  el.addEventListener('dragover', e => { if (!hasFiles(e) || !bc) return; e.preventDefault(); el.style.outline = '2px dashed #b99a5b'; });
+  el.addEventListener('dragleave', e => { if (e.target === el) el.style.outline = ''; });
+  el.addEventListener('drop', async e => {
+    el.style.outline = ''; if (!hasFiles(e)) return;
+    e.preventDefault(); e.stopPropagation();
+    if (!bc){ plMsg('먼저 「🎵 음악 방 만들기」로 방을 만들어 주세요.'); return; }
+    plAddFiles(await plReadDrop(e.dataTransfer), true);
+  });
+});
 // 검색 결과 줄의 ➕ : 그 결과의 재생 주소를 찾아(필요하면 인터넷으로 조회) 목록에 담음
 async function plAddPick(it, btn){
   const keep = $('mwnow').textContent, old = btn.textContent;
@@ -7110,6 +7132,7 @@ function plOne(){
   try { if (kq.list.some(x => x.st === 'now')) return false; } catch(_){}
   if (MV.k === 'yt' && MV.yt && MV.yt.seekTo){ mtGap(() => { try { MV.yt.seekTo(0, true); MV.yt.playVideo(); } catch(_){} try { mvPush(); } catch(_){} }); return true; }
   if (MV.k === 'url'){ mtGap(() => { try { mwvid.currentTime = 0; mwvid.play().catch(() => {}); } catch(_){} try { mvPush(); } catch(_){} }); return true; }
+  if (MV.k === 'file' && PL.one){ mtGap(() => { try { mwvid.currentTime = 0; mwvid.play().catch(() => {}); } catch(_){} }); return true; }
   return false;
 }
 function plVidState(ev){ if (ev && ev.data === 0){ if (plOne()) return; plEnded(); } }
@@ -7128,6 +7151,7 @@ mwvid.addEventListener('error', () => {
   const bad = PL.cur; setTimeout(() => { if (PL.cur === bad && plSame(bad)) plEnded(); }, 1500);
 });
 function plRender(){
+  try { const sl = $('bcloop'); if (sl) sl.value = PL.one ? 'one' : (PL.loop ? 'all' : 'off'); } catch(_){}
   const b = $('plbox'); if (!b) return; b.innerHTML = '';
   const mkb = (t, title, fn) => { const x = document.createElement('button'); x.type = 'button'; x.className = 'addhome'; x.textContent = t; x.title = title; x.onclick = fn; return x; };
   const mkc = (t, val, fn) => { const l = document.createElement('label'); const c = document.createElement('input'); c.type = 'checkbox'; c.checked = val; c.onchange = () => fn(c.checked); l.append(c, ' ' + t); return l; };
@@ -7147,7 +7171,7 @@ function plRender(){
   if (PL.msg){ const m = document.createElement('div'); m.className = 'plm'; m.style.cssText = 'color:var(--amber);opacity:1;padding:2px 0 6px'; m.textContent = PL.msg; b.append(m); }
   if (!PL.list.length){
     const e = document.createElement('div'); e.className = 'plm';
-    e.textContent = '비어 있습니다. ① 위 칸에 링크를 넣고 「➕ 목록에 추가」 ② 「🎬 영상 파일 추가」 ③ 「🔎 영상 찾기」 결과 옆의 ➕ 로 순서대로 쌓아 두세요.';
+    e.textContent = '비어 있습니다. ① 내 폴더의 음악·영상 파일을 여러 개 이 창에 끌어다 놓기 (폴더째도 가능) ② 위 칸에 링크를 넣고 「➕ 목록에 추가」 ③ 「🔎 영상 찾기」 결과 옆의 ➕ 로 순서대로 쌓아 두세요.';
     b.append(e); return;
   }
   const box = document.createElement('div'); box.className = 'pll';
@@ -7217,7 +7241,7 @@ $('vqgo').onclick = async () => {
   if (n){ $('vqu').value = ''; try { kqTick(); } catch(_){} }
   msg((n ? '✅ ' + n + '개를 올렸습니다. 방장이 허용(체크)하면 재생됩니다.' : '영상을 올리지 못했습니다.') + (bad ? ' · 유튜브·mp4 링크가 아닌 ' + bad + '개는 건너뜀' : '') + (full ? ' · 한 사람 최대 5개까지입니다.' : ''));
 };
-$('plfile').onchange = e => { const fs = e.target.files; if (fs && fs.length) plAddFiles(fs); e.target.value = ''; };
+$('plfile').onchange = e => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) plAddFiles(fs, true); };
 $('vadd').onclick = () => plAdd($('vurl').value);
 plRender();
 // ---- 통합 볼륨: 유튜브 · 링크/파일 영상 · 방 소리를 슬라이더 하나로 (시작은 30%로 낮게, 값 기억) ----
